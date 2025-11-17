@@ -3,10 +3,10 @@ name: Router Stress Test CI
 on:
   push:
     branches:
-      - "master"          # run on any branch
+      - "master"          
   pull_request:
     branches:
-      - master          # run PR checks on main
+      - master          
 
 jobs:
   run-tests:
