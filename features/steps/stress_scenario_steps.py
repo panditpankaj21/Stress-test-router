@@ -20,6 +20,3 @@ def step_impl(context):
 def step_impl(context):
     assert hasattr(context, "results"), "Stress test never started!"
     assert len(context.results) > 0, "No namespace results found!"
-    print("\n--- Stress Test Results ---")
-    for ns, result in context.results.items():
-        print(f"{ns}: {result}")

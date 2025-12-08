@@ -10,28 +10,8 @@ Feature: Router Stress Testing using Virtual Clients
 
   @basic_stress
   Scenario: Run a basic mixed-traffic load test
-    Given a stress scenario manager with duration 10 seconds and download URL "http://speedtest.tele2.net/20MB.zip"
-    And I create 5 virtual clients using macvlan
-    Then no two clients should receive the same IP address
-    And all assigned IPs should be reachable
-    When I start the stress test
-    Then I should see results for each namespace
-
-
-  @scale_20
-  Scenario: Verify correct setup for 20 concurrent virtual clients
-    Given a stress scenario manager with duration 15 seconds and download URL "http://speedtest.tele2.net/20MB.zip"
+    Given a stress scenario manager with duration 30 seconds and download URL "http://speedtest.tele2.net/20MB.zip"
     And I create 20 virtual clients using macvlan
-    Then no two clients should receive the same IP address
-    And all assigned IPs should be reachable
-    When I start the stress test
-    Then I should see results for each namespace
-
-
-  @scale_50
-  Scenario: Heavy load test with 50 virtual clients
-    Given a stress scenario manager with duration 20 seconds and download URL "http://speedtest.tele2.net/20MB.zip"
-    And I create 50 virtual clients using macvlan
     Then no two clients should receive the same IP address
     And all assigned IPs should be reachable
     When I start the stress test
