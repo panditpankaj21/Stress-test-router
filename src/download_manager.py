@@ -15,7 +15,6 @@ async def run_cmd(cmd, suppress_output=False):
         ),
     )
     stdout, stderr = await proc.communicate()
-
     return {
         "returncode": proc.returncode,
         "stdout": None if suppress_output else stdout.decode(),
@@ -35,14 +34,10 @@ class DownloadManager:
             f"-O /dev/null -o /dev/null "
             f"--no-cache {self.url}"
         )
-
         start = time.time()
         result = await run_cmd(cmd)
-
         duration = time.time() - start
-
         success = result["returncode"] == 0
-
         results[ns] = {
             "success": success,
             "duration": duration,
@@ -50,7 +45,6 @@ class DownloadManager:
             "stdout": result["stdout"],
             "stderr": result["stderr"],
         }
-
         if success:
             logger.info(f"[OK] {ns} completed download in {duration:.2f} sec")
         else:
@@ -58,16 +52,10 @@ class DownloadManager:
 
     async def start_parallel_download(self, namespaces):
         results = {}
-
         stop_event = asyncio.Event()
-
         tasks = [self.worker(ns, results) for ns in namespaces]
-
         health_task = asyncio.create_task(health_worker(stop_event))
-
         await asyncio.gather(*tasks)
-
         stop_event.set()
         await health_task
-
         return results

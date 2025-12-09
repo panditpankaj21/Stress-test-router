@@ -10,7 +10,6 @@ def step_create_clients(context, count):
 
     context.net_mgr = NetworkManager(context.interface)
     asyncio.run(context.net_mgr.create_clients(count))
-
     logger.info(
         f"STATUS: {count} clients successfully created and assigned IP addresses."
     )
