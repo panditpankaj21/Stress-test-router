@@ -1,5 +1,6 @@
-router_ip: "192.168.1.1"
-interface: "eth0"
-ping_duration: 30
-download_url: "http://speedtest.tele2.net/20MB.zip"
-download_timeout: 30
+ROUTER_IPV4: "192.168.1.1"
+ROUTER_IPV6: "fe80::f652:46ff:fed1:edbd"
+INTERFACE: "eth0"
+PING_DURATION: 30
+DOWNLOAD_URL: "http://speedtest.tele2.net/20MB.zip"
+DOWNLOAD_TIMEOUT: 30

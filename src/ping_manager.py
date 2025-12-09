@@ -25,16 +25,18 @@ async def run_cmd(cmd, suppress_output=False):
 
 
 class PingManager:
-    def __init__(self, target_ip, ping_duration):
+    def __init__(self, target_ip, ping_duration, ip_version):
         self.target_ip = target_ip
         self.duration = ping_duration
+        self.ip_version = ip_version
 
     async def worker(self, ns, end_time, results):
         success = True
 
         while time.time() < end_time:
+            ping_cmd = "-6" if self.ip_version == "IPV6" else "-4"
             result = await run_cmd(
-                f"sudo ip netns exec {ns} ping -c 1 -W 1 {self.target_ip}"
+                f"sudo ip netns exec {ns} ping {ping_cmd} -c 1 -W 1 {self.target_ip}"
             )
 
             if result["returncode"] != 0:

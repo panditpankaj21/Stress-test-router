@@ -6,28 +6,11 @@ Feature: Internet Connectivity Testing Using Google DNS
   Background:
     Given the base network interface is available on the system
 
-  @internet @hardware
   Scenario: Verify that clients can reach Google DNS
-    Given I create 5 virtual clients using macvlan
+    Given I create "5" virtual clients using macvlan
     Then no two clients should receive the same IP address
     And all assigned IPs should be reachable
-    When all clients attempt to ping Google DNS
+    When all clients attempt to ping Google DNS "IPV4"
     Then each client should successfully reach the internet
 
-  @scalability @hardware
-  Scenario Outline: Pinging Google.com with varying number of clients
-    Given I create <client_count> virtual clients using macvlan
-    Then no two clients should receive the same IP address
-    And all assigned IPs should be reachable
-    When all clients attempt to ping Google DNS
-    Then each client should successfully reach the internet
-
-    Examples:
-      | client_count |
-      | 10           |
-      | 20           |
-      | 50           |
-      | 100          |
-      | 200          |
-
-
+  

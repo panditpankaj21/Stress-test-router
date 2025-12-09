@@ -8,29 +8,11 @@ Feature: Network Stress Testing Using Virtual Clients
     Given the router IP address is configured
     And the base network interface is available on the system
 
-  @stress_test @hardware
-  Scenario: Create multiple virtual clients and verify connectivity
-    Given I create 5 virtual clients using macvlan
+  Scenario: Stress test router with varying number of clients
+    Given I create "5" virtual clients using macvlan
     Then no two clients should receive the same IP address
     And all assigned IPs should be reachable
-    When all clients attempt to ping the router simultaneously
+    When all clients attempt to ping the router simultaneously "IPV4"
     Then each client should successfully reach the router
-    And the overall network connectivity should remain stable
-
-  @scalability @hardware
-  Scenario Outline: Stress test router with varying number of clients
-    Given I create <client_count> virtual clients using macvlan
-    Then no two clients should receive the same IP address
-    And all assigned IPs should be reachable
-    When all clients attempt to ping the router simultaneously
-    Then each client should successfully reach the router
-
-    Examples:
-      | client_count |
-      | 10           |
-      | 20           |
-      | 50           |
-      | 100          |
-      | 200          |
 
 

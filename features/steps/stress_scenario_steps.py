@@ -3,9 +3,7 @@ from behave import given, when, then
 from src.stress_scenario_manager import StressScenarioManager
 
 
-@given(
-    'a stress scenario manager with duration {duration:d} seconds and download URL "{download_url}"'
-)
+@given('a stress scenario manager with duration "{duration:d}" seconds and download URL "{download_url}"')
 def step_impl(context, duration, download_url):
     context.sc_manager = StressScenarioManager(duration, download_url)
 

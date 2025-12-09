@@ -1,29 +1,14 @@
-Feature: High-Load Parallel File Download Stress Testing
-  This feature validates whether the router and underlying network infrastructure
-  can sustain high-bandwidth outbound traffic when multiple virtual clients attempt
-  to download large files in parallel. Each virtual client is created using macvlan
-  and is expected to perform a high-volume download of a 100GB ZIP file from a 
-  predefined HTTP server.
-
-  Goals of this stress test include:
-    - Evaluating router stability under sustained heavy load.
-    - Measuring concurrent throughput across multiple namespaces.
-    - Ensuring clients remain connected without timeouts or download failures.
-    - Identifying bandwidth limitations and bottlenecks.
-    - Observing whether increasing client count impacts network performance.
+Feature: High‑Load Parallel File Download Stress Test Validates router and network 
+        stability under heavy outbound traffic by simulating multiple macvlan 
+        clients downloading a 100GB file in parallel.
 
   Background:
     Given the base network interface is available on the system
     And a 20MB ZIP file URL is configured as the download source
 
-  @download @stress @hardware
   Scenario Outline: Validate parallel high-volume file downloads for multiple virtual clients
-    Given I create <client_count> virtual clients using macvlan
+    Given I create "5" virtual clients using macvlan
     Then no two clients should receive the same IP address
     And all assigned IPs should be reachable
     When all clients start downloading the 20MB ZIP file simultaneously
-
-    Examples:
-      | client_count |
-      | 5            |
 

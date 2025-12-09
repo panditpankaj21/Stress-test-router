@@ -9,7 +9,7 @@ def step_start_parallel_download(context):
     logger.info("----- PARALLEL DOWNLOAD STARTED -----")
 
     dm = DownloadManager(
-        url=context.download_url, timeout=context.config.get("download_timeout")
+        url=context.download_url, timeout=context.config.get("DOWNLOAD_TIMEOUT")
     )
 
     context.download_results = asyncio.run(
