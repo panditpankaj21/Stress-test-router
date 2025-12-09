@@ -24,14 +24,11 @@ def step_ping_clients(context, ip_version):
     context.results = asyncio.run(
         pm.run_test([ns for ns in context.net_mgr.client_namespaces])
     )
-
     logger.info("----- STOPPED PING -----")
 
 
 @then("each client should successfully reach the router")
 def step_validate_client_connectivity(context):
     failed = [ns for ns, success in context.results.items() if not success]
-
     assert len(failed) == 0, f"Clients failed to reach router: {', '.join(failed)}"
-
     logger.info("All clients successfully reached the router.")

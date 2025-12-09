@@ -13,17 +13,13 @@ async def cleanup_namespace(ns):
             f"-pf /run/dhclient6-{ns}.pid "
             f"-lf /var/lib/dhcp/dhclient6-{ns}.leases"
         )
-
         await run_cmd(
             f"sudo ip netns exec {ns} dhclient -r {macvlan} "
             f"-pf /run/dhclient-{ns}.pid "
             f"-lf /var/lib/dhcp/dhclient-{ns}.leases"
         )
-
         await run_cmd(f"sudo ip netns delete {ns}")
-
         await run_cmd(f"sudo rm -rf /etc/netns/{ns}")
-
     except subprocess.CalledProcessError as e:
         logger.warning(f"Failed to clean up {ns}: {e}")
 
@@ -47,11 +43,9 @@ def cleanup():
 def before_all(context):
     logger.info("----- STARTING NETWORK STRESS TEST -----")
     logger.info("Loading configuration from config.yaml")
-
     with open("config.yaml") as file:
         context.config = yaml.safe_load(file)
     logger.info("Configuration loaded successfully.")
-
     cleanup()
 
 
