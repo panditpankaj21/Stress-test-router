@@ -3,9 +3,10 @@ from behave import when, then
 from src.ping_manager import PingManager
 from utils.logger import logger
 
+
 @when('all clients attempt to ping the router simultaneously "{ip_version}"')
 def step_ping_clients(context, ip_version):
-    
+
     logger.info(ip_version)
     if ip_version == "IPV6":
         router_ip = context.router_IPV6
@@ -13,7 +14,6 @@ def step_ping_clients(context, ip_version):
         router_ip = context.router_IPV4
 
     print(router_ip)
-
 
     logger.info("------ PARALLEL CLIENT PING STARTED -----")
 
@@ -35,4 +35,3 @@ def step_validate_client_connectivity(context):
     assert len(failed) == 0, f"Clients failed to reach router: {', '.join(failed)}"
 
     logger.info("All clients successfully reached the router.")
-

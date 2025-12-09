@@ -12,7 +12,7 @@ def step_ping_google(context, ip_version):
         google_dns_ip = "2001:4860:4860::8888"
     else:
         google_dns_ip = "8.8.8.8"
-    
+
     ping_duration = context.config.get("PING_DURATION")
 
     pm = PingManager(google_dns_ip, ping_duration, ip_version)

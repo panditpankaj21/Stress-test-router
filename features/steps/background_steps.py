@@ -7,7 +7,6 @@ def step_router_ip_configured(context):
     router_IPV4 = context.config.get("ROUTER_IPV4")
     router_IPV6 = context.config.get("ROUTER_IPV6")
 
-
     if router_IPV4 and router_IPV6:
         is_configured = True
     else:
