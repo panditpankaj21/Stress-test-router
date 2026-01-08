@@ -54,6 +54,7 @@ def before_all(context):
         logger.error(f"Failed to load .env file: {e}")
         raise
 
+    logger.info("----- EXECUTING SSH LOGIN SCRIPT -----")
     try:
         cmd = f"./script/ssh-login.py -i {os.getenv('ROUTER_MAC')}"
         subprocess.run(

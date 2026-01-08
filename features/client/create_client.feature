@@ -18,4 +18,3 @@ Feature: Virtual Client Connectivity and Reachability
     Examples:
       | protocol |
       | IPV4     |
-      | IPV6     |
