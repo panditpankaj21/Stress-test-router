@@ -3,4 +3,7 @@ src/__pycache__
 utils/__pycache__
 __pycache__
 .venv
+results/json
+results/logs
+results/realtime_log
 .env

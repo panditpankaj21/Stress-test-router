@@ -38,6 +38,7 @@ class DownloadManager:
         self.url = url
         self.worker_timeout = worker_timeout
         self.semaphore = asyncio.Semaphore(max_concurrent)
+        self.failure_messages = {}  # ns -> failure reason
 
     async def verify_connectivity(self, ns):
         cmd = f"sudo ip netns exec {ns} ping -4 -c 1 -W 2 8.8.8.8"
@@ -48,12 +49,14 @@ class DownloadManager:
         async with self.semaphore:
 
             if not await self.verify_connectivity(ns):
+                msg = "No Internet connectivity"
                 results[ns] = {
                     "success": False,
                     "duration": 0,
                     "speed": 0,
-                    "error": "No Internet",
+                    "error": msg,
                 }
+                self.failure_messages[ns] = msg
                 return
 
             cmd = (
@@ -69,24 +72,35 @@ class DownloadManager:
             duration = time.time() - start
 
             if result["returncode"] != 0 or not result["stdout"]:
+                msg = "Timeout/Error during download"
                 results[ns] = {
                     "success": False,
                     "duration": round(duration, 2),
                     "speed": 0,
-                    "error": "Timeout/Error",
+                    "error": msg,
                 }
+                self.failure_messages[ns] = msg
                 return
 
-            speed_bytes, time_total = result["stdout"].split()
+            try:
+                speed_bytes, time_total = result["stdout"].split()
+                speed_mbps = (float(speed_bytes) * 8) / (1024 * 1024)
 
-            speed_mbps = (float(speed_bytes) * 8) / (1024 * 1024)
-
-            results[ns] = {
-                "success": True,
-                "duration": round(float(time_total), 2),
-                "speed": round(speed_mbps, 2),
-                "error": "",
-            }
+                results[ns] = {
+                    "success": True,
+                    "duration": round(float(time_total), 2),
+                    "speed": round(speed_mbps, 2),
+                    "error": "",
+                }
+            except Exception as e:
+                msg = f"Parsing error: {e}"
+                results[ns] = {
+                    "success": False,
+                    "duration": round(duration, 2),
+                    "speed": 0,
+                    "error": msg,
+                }
+                self.failure_messages[ns] = msg
 
     def display_results(self, results):
         table = PrettyTable()
@@ -153,6 +167,7 @@ class DownloadManager:
             await asyncio.wait_for(asyncio.gather(*tasks), timeout=global_timeout)
         except asyncio.TimeoutError:
             logger.error("!!! GLOBAL TIMEOUT REACHED !!!")
+            self.failure_messages["GLOBAL"] = "Global timeout reached"
         finally:
             stop_event.set()
             stop_event_router.set()
@@ -160,5 +175,10 @@ class DownloadManager:
             await health_task
             await router_task
             self.display_results(results)
+
+        # Raise assertion if any failures
+        if self.failure_messages:
+            details = "; ".join([f"{ns}: {msg}" for ns, msg in self.failure_messages.items()])
+            raise AssertionError(f"Download test failed. Details: {details}")
 
         return results

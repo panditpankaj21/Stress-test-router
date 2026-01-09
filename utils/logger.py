@@ -2,7 +2,7 @@ import logging
 import os
 from colorlog import ColoredFormatter
 
-LOG_FILE = "network_stress_report.log"
+LOG_FILE = "results/realtime_log/report.log"
 if os.path.exists(LOG_FILE):
     os.remove(LOG_FILE)
 
@@ -10,7 +10,6 @@ logger = logging.getLogger("network_test")
 logger.setLevel(logging.INFO)
 logger.handlers = []
 
-# Console handler with colors
 console_handler = logging.StreamHandler()
 console_formatter = ColoredFormatter(
     "%(log_color)s%(asctime)s [%(levelname)-8s] %(message)s",

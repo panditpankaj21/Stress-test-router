@@ -35,6 +35,7 @@ class PingManager:
         self.target_ip = target_ip
         self.duration = ping_duration
         self.ip_version = ip_version
+        self.failure_messages = {}  # ns -> failure reason
 
     async def worker(self, ns, end_time, results):
         success = True
@@ -45,7 +46,9 @@ class PingManager:
             )
             if result["returncode"] != 0:
                 success = False
-                logger.error(f"[FAIL] {ns} cannot reach {self.target_ip}")
+                msg = f"{ns} cannot reach {self.target_ip}"
+                logger.error(f"[FAIL] {msg}")
+                self.failure_messages[ns] = msg
             await asyncio.sleep(random.random() * 0.05)
         results[ns] = success
 
@@ -76,5 +79,10 @@ class PingManager:
 
         await pi_task
         await router_task
+
+        # Raise assertion if any failures
+        if self.failure_messages:
+            details = "; ".join([f"{ns}: {msg}" for ns, msg in self.failure_messages.items()])
+            raise AssertionError(f"Ping test failed. Details: {details}")
 
         return results

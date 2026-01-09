@@ -1,11 +1,34 @@
 import os
 import yaml
+import json
 import asyncio
+import logging
 import subprocess
 from dotenv import load_dotenv
-from utils.logger import logger
+from datetime import datetime
+from utils.logger import logger 
 from utils.command_runner import run_cmd
 from lib.router_ssh_manager import RouterSSHManager
+
+summary_logger = None
+
+def setup_summary_logger():
+    """
+    Sets up the summary logger. 
+    mode='w' ensures the file is cleared when this logger is initialized.
+    """
+    s_logger = logging.getLogger("scenario_summary")
+    s_logger.setLevel(logging.INFO)
+    s_logger.propagate = False 
+    
+    if not s_logger.handlers:
+        os.makedirs("results/logs", exist_ok=True)
+        handler = logging.FileHandler("results/logs/summary.log", mode='w') 
+        formatter = logging.Formatter("%(asctime)s | %(message)s")
+        handler.setFormatter(formatter)
+        s_logger.addHandler(handler)
+    
+    return s_logger
 
 
 async def cleanup_namespace(ns):
@@ -44,6 +67,14 @@ def cleanup():
 
 
 def before_all(context):
+    global summary_logger
+
+    summary_logger = setup_summary_logger()
+    summary_logger.info("Test Run Started:")
+    
+    os.makedirs("results/json", exist_ok=True)
+    with open("results/json/summary.json", "w") as f:
+        json.dump([], f)
 
     logger.info("----- STARTING NETWORK STRESS TEST -----")
 
@@ -100,7 +131,61 @@ def before_all(context):
 def before_scenario(context, scenario):
     logger.info("\n" + "----- BEFORE SCENARIO CLEANING PROCESS STARTS -----")
     cleanup()
+    scenario.start_time = datetime.now().isoformat()
     logger.info("----- CLEANUP DONE SUCCESSFULLY -----")
+
+
+def after_scenario(context, scenario):
+    end_time = datetime.now().isoformat()
+    steps_data = []
+    failure_message = None
+
+    for step in scenario.steps:
+        step_info = {
+            "name": step.name,
+            "status": step.status.name
+        }
+        if step.status.name == "failed":
+            step_info["failure_message"] = str(step.exception)
+            failure_message = str(step.exception)
+        elif step.status.name == "undefined":
+            step_info["failure_message"] = "Step definition not found"
+            failure_message = "Step definition not found"
+        elif step.status.name == "skipped":
+            step_info["failure_message"] = "Step skipped due to previous failure"
+        steps_data.append(step_info)
+
+    scenario_result = {
+        "feature": scenario.feature.name,
+        "scenario": scenario.name,
+        "status": scenario.status.name,
+        "steps": steps_data,
+        "timestamps": {
+            "start": getattr(scenario, 'start_time', datetime.now().isoformat()),
+            "end": end_time
+        },
+        "failure_message": failure_message
+    }
+
+    json_file = "results/json/summary.json"
+    try:
+        with open(json_file, "r") as f:
+            data = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        data = []
+
+    data.append(scenario_result)
+
+    with open(json_file, "w") as f:
+        json.dump(data, f, indent=2)
+
+    if summary_logger:
+        summary_logger.info(
+            f"Feature: {scenario.feature.name} | Scenario: {scenario.name} | "
+            f"Status: {scenario.status.name} | Failure: {failure_message or 'None'}"
+        )
+    
+    logger.info(f"Scenario '{scenario.name}' finished. Result: {scenario.status.name}")
 
 
 def after_all(context):

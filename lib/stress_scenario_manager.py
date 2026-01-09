@@ -6,7 +6,6 @@ import threading
 from utils.logger import logger
 from utils.command_runner import run_cmd
 
-
 class StressScenarioManager:
     def __init__(
         self, duration, download_url, router_ip="192.168.1.1", dns_server="8.8.8.8"
@@ -54,9 +53,13 @@ class StressScenarioManager:
             )
             time.sleep(1)
 
-        print("\rProgress: 100% | Done!                 ")
+        print("\rProgress: 100% | Done!                  ")
 
     async def start(self, namespaces):
+        # --- Assertion 1: Check if input is valid ---
+        if not namespaces:
+            raise AssertionError("Critical: No namespaces provided for stress test.")
+
         logger.info("======= STRESS TEST START =======")
 
         start_time = time.time()
@@ -97,4 +100,15 @@ class StressScenarioManager:
         await asyncio.gather(*futures)
 
         logger.info("\n======= COMPLETE =======")
+
+        # --- Assertion 2: Check for missing results (Completeness) ---
+        missing_ns = set(namespaces) - set(result_dict.keys())
+        if missing_ns:
+            raise AssertionError(f"Stress Test Failed: No results received for namespaces: {missing_ns}")
+
+        # --- Assertion 3: Check for zero executions (Did it actually run?) ---
+        failed_ns = {ns: count for ns, count in result_dict.items() if count == 0}
+        if failed_ns:
+            raise AssertionError(f"Stress Test Failed: Zero iterations executed for: {list(failed_ns.keys())}. Check commands/connectivity.")
+
         return result_dict
