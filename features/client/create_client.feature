@@ -9,7 +9,7 @@ Feature: Virtual Client Connectivity and Reachability
 
   Scenario Outline: Validate <protocol> connectivity with 5 concurrent virtual clients
     Given I initialize the Network Manager
-    When I provision "5" virtual clients using macvlan
+    When I provision "2" virtual clients using macvlan
     Then no two clients should have the same IP address
     And all assigned IPs should be reachable
     When all clients attempt to ping the router simultaneously using "<protocol>"

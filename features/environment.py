@@ -83,7 +83,7 @@ def before_all(context):
         logger.info(".env file loaded successfully.")
     except Exception as e:
         logger.error(f"Failed to load .env file: {e}")
-        raise
+        raise AssertionError(f"Failed to load .env file: {e}")
 
     logger.info("----- EXECUTING SSH LOGIN SCRIPT -----")
     try:
@@ -98,7 +98,7 @@ def before_all(context):
         logger.info("SSH login script executed successfully.")
     except subprocess.CalledProcessError as e:
         logger.error(f"SSH login script failed: {e}")
-        raise
+        raise AssertionError(f"SSH login script failed: {e}")
 
     logger.info("----- CLEANING UP BEFORE STARTING TEST -----")
     cleanup()
@@ -116,7 +116,7 @@ def before_all(context):
         logger.info("Router SSH Manager initialized successfully.")
     except Exception as e:
         logger.error(f"Failed to connect to router: {e}")
-        raise
+        raise AssertionError(f"Failed to Connect to router: {e}")
 
     logger.info("----- LOADING CONFIGURATION -----")
     try:
@@ -125,7 +125,7 @@ def before_all(context):
         logger.info("Configuration loaded successfully.")
     except Exception as e:
         logger.error(f"Failed to load configuration: {e}")
-        raise
+        raise AssertionError(f"Failed to load configuration: {e}")
 
 
 def before_scenario(context, scenario):

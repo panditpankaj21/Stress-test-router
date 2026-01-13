@@ -102,14 +102,16 @@ class NetworkManager:
                 f"-pf /run/dhclient-{ns}.pid -lf /var/lib/dhcp/dhclient-{ns}.leases &"
             )
 
+            await run_cmd(
+                f"sudo ip netns exec {ns} dhclient -6 -v {macvlan} -pf "
+                f"/run/dhclient6-{ns}.pid -lf /var/lib/dhcp/dhclient6-{ns}.leases &"
+            )
+
             for attempt in range(4):
                 if await self.wait_for_ip(ns, macvlan, mac):
                     self.count += 1
                     await run_cmd(f"sudo mkdir -p /etc/netns/{ns}")
-                    await run_cmd(
-                        f"sudo ip netns exec {ns} dhclient -6 -v {macvlan} -pf "
-                        f"/run/dhclient6-{ns}.pid -lf /var/lib/dhcp/dhclient6-{ns}.leases &"
-                    )
+                    
                     await run_cmd(
                         f'echo "nameserver 8.8.8.8\nnameserver 1.1.1.1" | sudo tee /etc/netns/{ns}/resolv.conf'
                     )

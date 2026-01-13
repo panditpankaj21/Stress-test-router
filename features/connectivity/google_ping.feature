@@ -6,6 +6,7 @@ Feature: External Internet Reachability
   Background: System Check
     Given the base network interface is available on the system
 
+  @google-ping
   Scenario: Verify IPv4 internet access for 5 concurrent virtual clients
     Given I initialize the Network Manager
     When I provision "5" virtual clients using macvlan
