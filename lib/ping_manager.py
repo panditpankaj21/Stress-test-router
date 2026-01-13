@@ -82,7 +82,9 @@ class PingManager:
 
         # Raise assertion if any failures
         if self.failure_messages:
-            details = "; ".join([f"{ns}: {msg}" for ns, msg in self.failure_messages.items()])
+            details = "; ".join(
+                [f"{ns}: {msg}" for ns, msg in self.failure_messages.items()]
+            )
             raise AssertionError(f"Ping test failed. Details: {details}")
 
         return results

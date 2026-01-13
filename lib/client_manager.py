@@ -12,7 +12,9 @@ class NetworkManager:
         self.parent_if = interface
         self.client_namespaces = []
         self.client_ips = {}
-        self.client_info = {}  # ns -> {"mac": str, "ipv4": str, "ipv6": str, "status": str}
+        self.client_info = (
+            {}
+        )  # ns -> {"mac": str, "ipv4": str, "ipv6": str, "status": str}
         self.count = 0
         self.failure_messages = {}  # ns -> failure reason
 
@@ -68,7 +70,7 @@ class NetworkManager:
             output = await run_cmd("sudo ip netns list")
             namespaces = [line.split()[0] for line in output.splitlines() if line]
             for ns in namespaces:
-                macvlan = f"macvlan{ns[2:]}"
+                # macvlan = f"macvlan{ns[2:]}"
                 try:
                     await run_cmd(f"sudo ip netns delete {ns}")
                     await run_cmd(f"sudo rm -rf /etc/netns/{ns}")
@@ -111,7 +113,7 @@ class NetworkManager:
                 if await self.wait_for_ip(ns, macvlan, mac):
                     self.count += 1
                     await run_cmd(f"sudo mkdir -p /etc/netns/{ns}")
-                    
+
                     await run_cmd(
                         f'echo "nameserver 8.8.8.8\nnameserver 1.1.1.1" | sudo tee /etc/netns/{ns}/resolv.conf'
                     )
@@ -138,7 +140,9 @@ class NetworkManager:
         self.display_client_table()
 
         if self.failure_messages:
-            details = "; ".join([f"{ns}: {msg}" for ns, msg in self.failure_messages.items()])
+            details = "; ".join(
+                [f"{ns}: {msg}" for ns, msg in self.failure_messages.items()]
+            )
             await self.cleanup()
             raise AssertionError(f"Client creation failed. Details: {details}")
 
