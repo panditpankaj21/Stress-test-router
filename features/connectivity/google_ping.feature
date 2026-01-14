@@ -6,10 +6,37 @@ Feature: External Internet Reachability
   Background: System Check
     Given the base network interface is available on the system
 
-  @google-ping
+  @5google-ping
   Scenario: Verify IPv4 internet access for 5 concurrent virtual clients
     Given I initialize the Network Manager
     When I provision "5" virtual clients using macvlan
+    Then no two clients should have the same IP address
+    And all assigned IPs should be reachable
+    When all clients attempt to ping Google DNS "IPV4"
+    Then each client should successfully reach the internet
+
+  @20google-ping
+  Scenario: Verify IPv4 internet access for 5 concurrent virtual clients
+    Given I initialize the Network Manager
+    When I provision "20" virtual clients using macvlan
+    Then no two clients should have the same IP address
+    And all assigned IPs should be reachable
+    When all clients attempt to ping Google DNS "IPV4"
+    Then each client should successfully reach the internet
+
+  @50google-ping
+  Scenario: Verify IPv4 internet access for 5 concurrent virtual clients
+    Given I initialize the Network Manager
+    When I provision "50" virtual clients using macvlan
+    Then no two clients should have the same IP address
+    And all assigned IPs should be reachable
+    When all clients attempt to ping Google DNS "IPV4"
+    Then each client should successfully reach the internet
+
+  @100google-ping
+  Scenario: Verify IPv4 internet access for 5 concurrent virtual clients
+    Given I initialize the Network Manager
+    When I provision "100" virtual clients using macvlan
     Then no two clients should have the same IP address
     And all assigned IPs should be reachable
     When all clients attempt to ping Google DNS "IPV4"

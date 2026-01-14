@@ -15,7 +15,7 @@ def step_ping_google(context, ip_version):
 
     ping_duration = context.config.get("PING_DURATION")
 
-    pm = PingManager(context.router_ssh, google_dns_ip, ping_duration, ip_version)
+    pm = PingManager(google_dns_ip, ping_duration, ip_version)
     context.results = asyncio.run(
         pm.run_test([ns for ns in context.net_mgr.client_namespaces])
     )

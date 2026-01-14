@@ -8,7 +8,8 @@ from dotenv import load_dotenv
 from datetime import datetime
 from utils.logger import logger
 from utils.command_runner import run_cmd
-from lib.router_ssh_manager import RouterSSHManager
+from utils.router_ssh import create_router_ssh
+import utils.config
 
 summary_logger = None
 
@@ -106,14 +107,9 @@ def before_all(context):
     logger.info("----- CLEANUP DONE SUCCESSFULLY -----")
 
     logger.info("----- INITIALIZING ROUTER SSH MANAGER -----")
-    context.router_ssh = RouterSSHManager(
-        host=os.getenv("HOST"),
-        username=os.getenv("USERNAME"),
-        password=os.getenv("PASSWORD"),
-        timeout=int(os.getenv("SSH_TIMEOUT", 10)),
-    )
+    utils.config.router_ssh = create_router_ssh()
     try:
-        context.router_ssh.connect()
+        utils.config.router_ssh.connect()
         logger.info("Router SSH Manager initialized successfully.")
     except Exception as e:
         logger.error(f"Failed to connect to router: {e}")
@@ -190,4 +186,4 @@ def after_all(context):
     logger.info("----- END CLEANING PROCESS STARTS -----")
     cleanup()
     logger.info("----- CLEANUP DONE SUCCESSFULLY -----")
-    context.router_ssh.disconnect()
+    utils.config.router_ssh.disconnect()

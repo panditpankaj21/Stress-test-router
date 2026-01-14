@@ -50,7 +50,7 @@ class NetworkManager:
                     }
                     return True
             except subprocess.CalledProcessError:
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(0.05)
 
         # Timeout case
         msg = f"{namespace} did not get IP within {timeout}s."
@@ -132,8 +132,15 @@ class NetworkManager:
             self.failure_messages[ns] = msg
 
     async def create_clients(self, count):
+        start_time = time.monotonic()
+
         tasks = [self.create_client(i) for i in range(1, count + 1)]
         await asyncio.gather(*tasks)
+
+        end_time = time.monotonic()
+        elapsed_time = end_time - start_time
+        logger.info(f"Client creation took {elapsed_time / 60:.2f} minutes.")
+
         logger.info(f"----- ONLY {self.count} / {count} got IP ------")
         self.count = 0
 

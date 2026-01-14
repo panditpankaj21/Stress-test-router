@@ -5,6 +5,8 @@ import time
 import threading
 from utils.logger import logger
 from utils.command_runner import run_cmd
+from utils.pi_health_check import health_worker
+from utils.router_health import get_router_health
 
 
 class StressScenarioManager:
@@ -57,11 +59,14 @@ class StressScenarioManager:
         print("\rProgress: 100% | Done!                  ")
 
     async def start(self, namespaces):
-        # --- Assertion 1: Check if input is valid ---
+
         if not namespaces:
             raise AssertionError("Critical: No namespaces provided for stress test.")
 
         logger.info("======= STRESS TEST START =======")
+
+        stop_event_pi = asyncio.Event()
+        stop_event_router = asyncio.Event()
 
         start_time = time.time()
         end_time = start_time + self.duration
@@ -98,18 +103,24 @@ class StressScenarioManager:
         )
         progress_thread.start()
 
+        pi_task = asyncio.create_task(health_worker(stop_event_pi))
+        router_task = asyncio.create_task(get_router_health(stop_event_router))
+
         await asyncio.gather(*futures)
+
+        stop_event_pi.set()
+        stop_event_router.set()
+        await pi_task
+        await router_task
 
         logger.info("\n======= COMPLETE =======")
 
-        # --- Assertion 2: Check for missing results (Completeness) ---
         missing_ns = set(namespaces) - set(result_dict.keys())
         if missing_ns:
             raise AssertionError(
                 f"Stress Test Failed: No results received for namespaces: {missing_ns}"
             )
 
-        # --- Assertion 3: Check for zero executions (Did it actually run?) ---
         failed_ns = {ns: count for ns, count in result_dict.items() if count == 0}
         if failed_ns:
             raise AssertionError(

@@ -15,7 +15,7 @@ def step_configure_file_url(context):
 @when("all clients start downloading the configured file simultaneously")
 def step_start_parallel_download(context):
     logger.info("----- PARALLEL DOWNLOAD STARTED -----")
-    dm = DownloadManager(context.router_ssh)
+    dm = DownloadManager()
     context.download_results = asyncio.run(
         dm.start_parallel_download(context.net_mgr.client_namespaces)
     )

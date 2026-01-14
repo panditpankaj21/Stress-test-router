@@ -3,6 +3,7 @@ import time
 from prettytable import PrettyTable
 from utils.logger import logger
 from utils.pi_health_check import health_worker
+from utils.router_health import get_router_health
 
 
 async def run_cmd(cmd):
@@ -20,21 +21,13 @@ async def run_cmd(cmd):
     }
 
 
-async def get_router_health(router_ssh, host, username, password, stop_event):
-    while not stop_event.is_set():
-        router_ssh.get_health()
-        await asyncio.sleep(5)
-
-
 class DownloadManager:
     def __init__(
         self,
-        router_ssh,
         url="http://speedtest.tele2.net/10MB.zip",
         worker_timeout=60,
         max_concurrent=10,
     ):
-        self.router_ssh = router_ssh
         self.url = url
         self.worker_timeout = worker_timeout
         self.semaphore = asyncio.Semaphore(max_concurrent)
@@ -147,19 +140,11 @@ class DownloadManager:
         logger.info(f"----- STARTING DOWNLOAD FOR {len(namespaces)} CLIENTS -----")
 
         results = {}
-        stop_event = asyncio.Event()
+        stop_event_pi = asyncio.Event()
         stop_event_router = asyncio.Event()
 
-        health_task = asyncio.create_task(health_worker(stop_event))
-        router_task = asyncio.create_task(
-            get_router_health(
-                self.router_ssh,
-                "192.168.1.1",
-                "operator",
-                "Charter123",
-                stop_event_router,
-            )
-        )
+        pi_task = asyncio.create_task(health_worker(stop_event_pi))
+        router_task = asyncio.create_task(get_router_health(stop_event_router))
 
         tasks = [self.worker(ns, results) for ns in namespaces]
 
@@ -169,14 +154,13 @@ class DownloadManager:
             logger.error("!!! GLOBAL TIMEOUT REACHED !!!")
             self.failure_messages["GLOBAL"] = "Global timeout reached"
         finally:
-            stop_event.set()
+            stop_event_pi.set()
             stop_event_router.set()
 
-            await health_task
+            await pi_task
             await router_task
             self.display_results(results)
 
-        # Raise assertion if any failures
         if self.failure_messages:
             details = "; ".join(
                 [f"{ns}: {msg}" for ns, msg in self.failure_messages.items()]

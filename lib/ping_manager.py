@@ -3,6 +3,7 @@ import random
 import time
 from utils.pi_health_check import health_worker
 from utils.logger import logger
+from utils.router_health import get_router_health
 
 
 async def run_cmd(cmd, suppress_output=False):
@@ -23,15 +24,8 @@ async def run_cmd(cmd, suppress_output=False):
     }
 
 
-async def get_router_health(router_ssh, host, username, password, stop_event):
-    while not stop_event.is_set():
-        router_ssh.get_health()
-        await asyncio.sleep(5)
-
-
 class PingManager:
-    def __init__(self, router_ssh, target_ip, ping_duration, ip_version):
-        self.router_ssh = router_ssh
+    def __init__(self, target_ip, ping_duration, ip_version):
         self.target_ip = target_ip
         self.duration = ping_duration
         self.ip_version = ip_version
@@ -62,15 +56,7 @@ class PingManager:
         ping_tasks = [self.worker(ns, end_time, results) for ns in namespaces]
 
         pi_task = asyncio.create_task(health_worker(stop_event_pi))
-        router_task = asyncio.create_task(
-            get_router_health(
-                self.router_ssh,
-                "192.168.1.1",
-                "operator",
-                "Charter123",
-                stop_event_router,
-            )
-        )
+        router_task = asyncio.create_task(get_router_health(stop_event_router))
 
         await asyncio.gather(*ping_tasks)
 
@@ -80,7 +66,6 @@ class PingManager:
         await pi_task
         await router_task
 
-        # Raise assertion if any failures
         if self.failure_messages:
             details = "; ".join(
                 [f"{ns}: {msg}" for ns, msg in self.failure_messages.items()]
