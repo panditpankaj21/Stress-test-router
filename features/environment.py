@@ -102,6 +102,12 @@ def before_all(context):
         logger.error(f"SSH login script failed: {e}")
         raise AssertionError(f"SSH login script failed: {e}")
 
+    context.ssid = os.getenv('WIFI_SSID')
+    context.password = os.getenv('WIFI_PASSWORD')
+
+    if not context.ssid or not context.password:
+        raise ValueError("WIFI_SSID and WIFI_PASSWORD must be set in .env")
+
     logger.info("----- CLEANING UP BEFORE STARTING TEST -----")
     cleanup()
     logger.info("----- CLEANUP DONE SUCCESSFULLY -----")

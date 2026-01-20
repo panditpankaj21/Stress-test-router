@@ -7,3 +7,5 @@ results/json
 results/logs
 results/realtime_log
 .env
+__pycache__/
+*.pyc
