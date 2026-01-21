@@ -95,7 +95,7 @@ def connect_wifi(context):
     # Try IPv6
     run_cmd('sudo dhclient -6 wlan0 2>/dev/null')
     
-    time.sleep(30)
+    time.sleep(5)
 
 @when('all clients attempt to ping WiFi Client "{ip_version}"')
 def ping_wifi_client(context, ip_version):

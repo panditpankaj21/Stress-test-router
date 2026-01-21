@@ -7,6 +7,7 @@ Feature: WiFi Connection with Network Replacement
     Then WiFi should be connected
     And the config file should only have one network block
     And I should have IPv4 address
+    And I should have IPv6 address
     Given I initialize the Network Manager
     When I provision "5" virtual clients using macvlan
     Then no two clients should have the same IP address
