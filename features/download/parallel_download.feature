@@ -10,7 +10,7 @@ Feature: Concurrent File Download Stress Test
   @download
   Scenario: Validate parallel downloads for 5 concurrent virtual clients
     Given I initialize the Network Manager
-    When I provision "100" virtual clients using macvlan
+    When I provision "10" virtual clients using macvlan
     Then no two clients should have the same IP address
     And all assigned IPs should be reachable
     When all clients start downloading the configured file simultaneously

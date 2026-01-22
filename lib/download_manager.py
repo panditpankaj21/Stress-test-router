@@ -4,6 +4,7 @@ from prettytable import PrettyTable
 from utils.logger import logger
 from utils.pi_health_check import health_worker
 from utils.router_health import get_router_health
+from lib.route_verifier import RouteVerifier
 
 
 async def run_cmd(cmd):
@@ -27,17 +28,22 @@ class DownloadManager:
         self,
         url="http://speedtest.tele2.net/10MB.zip",
         worker_timeout=60,
-        max_concurrent=None,  # None = unlimited, or set a number for batching
+        max_concurrent=None,
         connect_timeout=10,
         max_retries=2,
+        verify_routes=True,
+        expected_router_ip=None,
     ):
         self.url = url
         self.worker_timeout = worker_timeout
         self.connect_timeout = connect_timeout
         self.max_retries = max_retries
+        self.verify_routes = verify_routes
         self.semaphore = asyncio.Semaphore(max_concurrent) if max_concurrent else None
-        self.failure_messages = {}  # ns -> failure reason
-        self.active_processes = {}  # ns -> process object for cleanup
+        self.failure_messages = {}
+        self.route_verifier = (
+            RouteVerifier(expected_router_ip) if verify_routes else None
+        )
 
     async def verify_connectivity(self, ns):
         """Check if namespace has internet connectivity"""
@@ -49,36 +55,35 @@ class DownloadManager:
         """Download with retry logic"""
         for attempt in range(1, self.max_retries + 1):
             result = await self._execute_download(ns)
-            
+
             if result["success"]:
                 return result
-            
+
             if attempt < self.max_retries:
                 logger.warning(
                     f"{ns}: Attempt {attempt} failed, retrying... "
                     f"({result['error']})"
                 )
-                await asyncio.sleep(1)  # Small delay between retries
+                await asyncio.sleep(1)
             else:
                 logger.error(f"{ns}: All {self.max_retries} attempts failed")
-                
+
         return result
 
     async def _execute_download(self, ns):
         """Execute single download attempt with optimized curl"""
-        # Optimized curl command with proper timeouts and options
         cmd = (
             f"sudo ip netns exec {ns} "
-            f"curl -4 "  # Force IPv4
-            f"--location "  # Follow redirects
-            f"--silent "  # Silent mode
-            f"--show-error "  # Show errors even in silent mode
-            f"--output /dev/null "  # Discard downloaded data
-            f"--connect-timeout {self.connect_timeout} "  # Connection timeout
-            f"--max-time {self.worker_timeout} "  # Total timeout
-            f"--retry 0 "  # No curl internal retries (we handle it)
-            f"--compressed "  # Accept compressed response
-            f"--tcp-nodelay "  # Disable Nagle's algorithm for better speed
+            f"curl -4 "
+            f"--location "
+            f"--silent "
+            f"--show-error "
+            f"--output /dev/null "
+            f"--connect-timeout {self.connect_timeout} "
+            f"--max-time {self.worker_timeout} "
+            f"--retry 0 "
+            f"--compressed "
+            f"--tcp-nodelay "
             f"--write-out '%{{size_download}} %{{speed_download}} %{{time_total}} %{{http_code}}' "
             f"'{self.url}'"
         )
@@ -87,7 +92,6 @@ class DownloadManager:
         result = await run_cmd(cmd)
         duration = time.time() - start
 
-        # Parse result
         if result["returncode"] != 0:
             error_msg = result["stderr"] or "Download failed"
             return {
@@ -119,11 +123,9 @@ class DownloadManager:
             time_total = float(parts[2])
             http_code = int(parts[3])
 
-            # Convert speed to Mbps
             speed_mbps = (speed_bytes * 8) / (1024 * 1024)
             size_mb = size_bytes / (1024 * 1024)
 
-            # Check HTTP status
             if http_code != 200:
                 return {
                     "success": False,
@@ -134,7 +136,6 @@ class DownloadManager:
                     "error": f"HTTP {http_code}",
                 }
 
-            # Success
             return {
                 "success": True,
                 "duration": round(time_total, 2),
@@ -156,9 +157,8 @@ class DownloadManager:
 
     async def worker(self, ns, results):
         """Worker task for downloading in a namespace"""
-        
+
         async def _work():
-            # Verify connectivity first
             if not await self.verify_connectivity(ns):
                 msg = "No Internet connectivity"
                 results[ns] = {
@@ -172,19 +172,16 @@ class DownloadManager:
                 self.failure_messages[ns] = msg
                 return
 
-            # Download with retry
             result = await self.download_with_retry(ns)
             results[ns] = result
-            
+
             if not result["success"]:
                 self.failure_messages[ns] = result["error"]
 
-        # Use semaphore if configured (for batching)
         if self.semaphore:
             async with self.semaphore:
                 await _work()
         else:
-            # Truly parallel - no throttling
             await _work()
 
     def display_results(self, results):
@@ -227,7 +224,6 @@ class DownloadManager:
                 ]
             )
 
-        # Calculate averages
         avg_speed = round(total_speed / success_count, 2) if success_count > 0 else 0
         avg_time = round(total_time / success_count, 2) if success_count > 0 else 0
 
@@ -243,61 +239,79 @@ class DownloadManager:
         logger.info(f"\n{table}\n" + "═" * 90 + "\n")
 
     async def start_parallel_download(self, namespaces, global_timeout=300):
-        """Start parallel downloads for all namespaces"""
+        """Start parallel downloads for all namespaces with route verification"""
         logger.info(
             f"----- STARTING {'BATCHED' if self.semaphore else 'PARALLEL'} "
             f"DOWNLOAD FOR {len(namespaces)} CLIENTS -----"
         )
 
+        # Step 1: Verify routes BEFORE downloading (if enabled)
+        route_results = []
+        if self.verify_routes and self.route_verifier:
+            logger.info("----- VERIFYING NETWORK ROUTES -----")
+            route_tasks = [self.route_verifier.verify_route(ns) for ns in namespaces]
+            route_results = await asyncio.gather(*route_tasks, return_exceptions=True)
+
+            # Filter out exceptions
+            route_results = [r for r in route_results if isinstance(r, dict)]
+
+            # Display route verification results
+            if route_results:
+                self.route_verifier.display_route_summary(route_results)
+
+            # Check if all routes go through expected router (optional strict check)
+            if self.route_verifier.expected_router_ip:
+                non_compliant = [
+                    r["namespace"]
+                    for r in route_results
+                    if r["route_type"] != "via_expected_router"
+                ]
+                if non_compliant:
+                    logger.warning(
+                        f"WARNING: {len(non_compliant)} namespace(s) not using "
+                        f"expected router: {', '.join(non_compliant)}"
+                    )
+
+        # Step 2: Start downloads
         results = {}
         stop_event_pi = asyncio.Event()
         stop_event_router = asyncio.Event()
 
-        # Start health monitoring tasks
         pi_task = asyncio.create_task(health_worker(stop_event_pi))
         router_task = asyncio.create_task(get_router_health(stop_event_router))
 
-        # Create all worker tasks
         tasks = [asyncio.create_task(self.worker(ns, results)) for ns in namespaces]
 
         try:
-            # Wait for all downloads to complete or timeout
             await asyncio.wait_for(
-                asyncio.gather(*tasks, return_exceptions=True),
-                timeout=global_timeout
+                asyncio.gather(*tasks, return_exceptions=True), timeout=global_timeout
             )
         except asyncio.TimeoutError:
             logger.error("!!! GLOBAL TIMEOUT REACHED !!!")
             self.failure_messages["GLOBAL"] = "Global timeout reached"
-            
-            # Cancel remaining tasks
+
             for task in tasks:
                 if not task.done():
                     task.cancel()
-            
-            # Wait for cancellations to complete
+
             await asyncio.gather(*tasks, return_exceptions=True)
-            
+
         except Exception as e:
             logger.error(f"Unexpected error during downloads: {e}")
             self.failure_messages["EXCEPTION"] = str(e)
-            
+
         finally:
-            # Stop health monitoring
             stop_event_pi.set()
             stop_event_router.set()
 
-            # Wait for health tasks to finish
             await asyncio.gather(pi_task, router_task, return_exceptions=True)
-            
-            # Display results
+
             self.display_results(results)
 
-        # Raise exception if there were failures
         if self.failure_messages:
             details = "; ".join(
                 [f"{ns}: {msg}" for ns, msg in self.failure_messages.items()]
             )
             raise AssertionError(f"Download test failed. Details: {details}")
 
-        return results
+        return {"download_results": results, "route_results": route_results}

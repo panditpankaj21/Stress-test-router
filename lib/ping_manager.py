@@ -1,75 +1,253 @@
 import asyncio
-import random
 import time
-from utils.pi_health_check import health_worker
+import random
+import re
+from typing import List, Dict, Any
+from prettytable import PrettyTable
+
+# Assuming these exist in your project
 from utils.logger import logger
+from utils.pi_health_check import health_worker
 from utils.router_health import get_router_health
 
 
-async def run_cmd(cmd, suppress_output=False):
-    proc = await asyncio.create_subprocess_shell(
-        cmd,
-        stdout=(
-            asyncio.subprocess.DEVNULL if suppress_output else asyncio.subprocess.PIPE
-        ),
-        stderr=(
-            asyncio.subprocess.DEVNULL if suppress_output else asyncio.subprocess.PIPE
-        ),
-    )
-    stdout, stderr = await proc.communicate()
-    return {
-        "returncode": proc.returncode,
-        "stdout": None if suppress_output else stdout.decode(),
-        "stderr": None if suppress_output else stderr.decode(),
-    }
+async def run_exec(cmd_args: List[str]) -> Dict[str, Any]:
+    """Execute a command securely without a shell (avoids injection risks)."""
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *cmd_args,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+
+        return {
+            "returncode": proc.returncode,
+            "stdout": stdout.decode().strip() if stdout else "",
+            "stderr": stderr.decode().strip() if stderr else "",
+        }
+    except Exception as e:
+        return {"returncode": -1, "stdout": "", "stderr": str(e)}
 
 
 class PingManager:
-    def __init__(self, target_ip, ping_duration, ip_version):
+    def __init__(
+        self,
+        target_ip: str,
+        duration: int = 10,
+        ip_version: str = "IPV4",
+        interval: float = 0.5,
+    ):
         self.target_ip = target_ip
-        self.duration = ping_duration
+        self.duration = duration
         self.ip_version = ip_version
-        self.failure_messages = {}  # ns -> failure reason
+        self.interval = interval
 
-    async def worker(self, ns, end_time, results):
-        success = True
-        while time.time() < end_time:
-            ping_cmd = "-6" if self.ip_version == "IPV6" else "-4"
-            result = await run_cmd(
-                f"sudo ip netns exec {ns} ping {ping_cmd} -c 1 -W 1 {self.target_ip}"
-            )
-            if result["returncode"] != 0:
-                success = False
-                msg = f"{ns} cannot reach {self.target_ip}"
-                logger.error(f"[FAIL] {msg}")
-                self.failure_messages[ns] = msg
-            await asyncio.sleep(random.random() * 0.05)
-        results[ns] = success
+        # Determine ping flag once
+        self.ping_flag = "-6" if self.ip_version == "IPV6" else "-4"
 
-    async def run_test(self, namespaces):
+        self.results: Dict[str, Any] = {}
+        self.failure_messages: Dict[str, str] = {}
+
+    async def _execute_single_ping(self, ns: str) -> Dict[str, Any]:
+        """Runs a single ping and parses latency."""
+        cmd = [
+            "sudo",
+            "ip",
+            "netns",
+            "exec",
+            ns,
+            "ping",
+            self.ping_flag,
+            "-c",
+            "1",  # Send 1 packet
+            "-W",
+            "1",  # Wait max 1 second
+            self.target_ip,
+        ]
+
+        result = await run_exec(cmd)
+
+        if result["returncode"] != 0:
+            return {"success": False, "latency": 0.0, "error": result["stderr"]}
+
+        # Parse Latency (e.g., "time=14.2 ms")
+        latency = 0.0
+        try:
+            # Regex to find time=X.X
+            match = re.search(r"time=([\d.]+)", result["stdout"])
+            if match:
+                latency = float(match.group(1))
+        except Exception:
+            pass
+
+        return {"success": True, "latency": latency, "error": ""}
+
+    async def worker(self, ns: str):
+        """Worker that runs pings for the specified duration and aggregates stats."""
         end_time = time.time() + self.duration
-        results = {}
+
+        stats = {
+            "sent": 0,
+            "received": 0,
+            "total_latency": 0.0,
+            "min_latency": 9999.0,
+            "max_latency": 0.0,
+            "errors": set(),
+        }
+
+        while time.time() < end_time:
+            stats["sent"] += 1
+            res = await self._execute_single_ping(ns)
+
+            if res["success"]:
+                stats["received"] += 1
+                lat = res["latency"]
+                stats["total_latency"] += lat
+                stats["min_latency"] = min(stats["min_latency"], lat)
+                stats["max_latency"] = max(stats["max_latency"], lat)
+            else:
+                # Capture unique errors
+                clean_err = (
+                    res["error"].replace(self.target_ip, "").strip() or "Timeout"
+                )
+                stats["errors"].add(clean_err)
+
+                # Log only the first error to avoid flooding
+                if len(stats["errors"]) == 1:
+                    logger.debug(f"{ns}: Ping failed - {clean_err}")
+
+            # Sleep with jitter to avoid packet bursts
+            await asyncio.sleep(self.interval + random.uniform(0, 0.05))
+
+        # Calculate final metrics for this namespace
+        loss_pct = 0.0
+        avg_lat = 0.0
+
+        if stats["sent"] > 0:
+            loss_pct = ((stats["sent"] - stats["received"]) / stats["sent"]) * 100
+
+        if stats["received"] > 0:
+            avg_lat = stats["total_latency"] / stats["received"]
+        else:
+            stats["min_latency"] = 0.0  # Reset if no packets received
+
+        self.results[ns] = {
+            "loss_pct": round(loss_pct, 1),
+            "avg_latency": round(avg_lat, 2),
+            "min_latency": round(stats["min_latency"], 2),
+            "max_latency": round(stats["max_latency"], 2),
+            "sent": stats["sent"],
+            "received": stats["received"],
+            "errors": list(stats["errors"]),
+        }
+
+        if loss_pct > 0:
+            self.failure_messages[ns] = f"Loss {loss_pct}%"
+
+    def display_results(self):
+        """Display a PrettyTable summary similar to DownloadManager."""
+        table = PrettyTable()
+        table.field_names = [
+            "Namespace",
+            "Status",
+            "Loss %",
+            "Avg (ms)",
+            "Min/Max (ms)",
+            "Sent/Recv",
+            "Remarks",
+        ]
+        table.align = "l"
+        table.align["Loss %"] = "r"
+        table.align["Avg (ms)"] = "r"
+        table.align["Status"] = "c"
+
+        total_sent = 0
+        total_recv = 0
+        namespaces_with_loss = 0
+
+        for ns in sorted(self.results.keys()):
+            data = self.results[ns]
+            total_sent += data["sent"]
+            total_recv += data["received"]
+
+            # Determine Status
+            if data["loss_pct"] == 0:
+                status = "✓ OK"
+            elif data["loss_pct"] < 100:
+                status = "⚠ DEGRADED"
+                namespaces_with_loss += 1
+            else:
+                status = "✗ FAIL"
+                namespaces_with_loss += 1
+
+            remarks = ", ".join(data["errors"]) if data["errors"] else ""
+
+            table.add_row(
+                [
+                    ns,
+                    status,
+                    f"{data['loss_pct']}%",
+                    f"{data['avg_latency']}",
+                    f"{data['min_latency']}/{data['max_latency']}",
+                    f"{data['sent']}/{data['received']}",
+                    remarks,
+                ]
+            )
+
+        # Global Stats
+        global_loss = 0.0
+        if total_sent > 0:
+            global_loss = ((total_sent - total_recv) / total_sent) * 100
+
+        logger.info(
+            f"\n{'='*95}\n"
+            f"PING SUMMARY | Target: {self.target_ip} | Duration: {self.duration}s\n"
+            f"Total Pings: {total_sent} | Global Loss: {global_loss:.1f}%"
+            f" | Affected Clients: {namespaces_with_loss}/{len(self.results)}\n"
+            f"{'='*95}"
+        )
+        logger.info(f"\n{table}\n{'='*95}\n")
+
+    async def run_test(self, namespaces: List[str]):
+        logger.info(
+            f"--- STARTING PING TEST: {len(namespaces)} Clients -> {self.target_ip} ---"
+        )
+
+        self.results = {}
+        self.failure_messages = {}
 
         stop_event_pi = asyncio.Event()
         stop_event_router = asyncio.Event()
 
-        ping_tasks = [self.worker(ns, end_time, results) for ns in namespaces]
-
+        # Background Health Checks
         pi_task = asyncio.create_task(health_worker(stop_event_pi))
         router_task = asyncio.create_task(get_router_health(stop_event_router))
 
-        await asyncio.gather(*ping_tasks)
+        # Create Worker Tasks
+        ping_tasks = [asyncio.create_task(self.worker(ns)) for ns in namespaces]
 
-        stop_event_pi.set()
-        stop_event_router.set()
+        try:
+            # Wait for all ping workers to finish (based on duration)
+            await asyncio.gather(*ping_tasks)
 
-        await pi_task
-        await router_task
+        except Exception as e:
+            logger.error(f"Critical error in ping manager: {e}")
+            raise
+
+        finally:
+            # CLEANUP: Stop background monitors
+            stop_event_pi.set()
+            stop_event_router.set()
+            await asyncio.gather(pi_task, router_task, return_exceptions=True)
+
+            self.display_results()
 
         if self.failure_messages:
+            # Create a summary string for the exception
             details = "; ".join(
                 [f"{ns}: {msg}" for ns, msg in self.failure_messages.items()]
             )
             raise AssertionError(f"Ping test failed. Details: {details}")
 
-        return results
+        return self.results
