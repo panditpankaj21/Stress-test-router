@@ -23,8 +23,9 @@ async def run_cmd(cmd):
 class RouteVerifier:
     """Verify network routing path for downloads"""
 
-    def __init__(self, expected_router_ip=None):
+    def __init__(self, expected_router_ip=None, isIPV6=False):
         self.expected_router_ip = expected_router_ip
+        self.isIPV6 = isIPV6
         self.route_cache = {}
 
     async def get_default_gateway(self, ns):
@@ -43,6 +44,14 @@ class RouteVerifier:
 
     async def get_route_to_destination(self, ns, destination):
         """Get route to specific destination"""
+
+        if self.isIPV6:
+            return {
+                "gateway": self.expected_router_ip,
+                "interface": None,
+                "error": None,
+            }
+
         cmd = f"sudo ip netns exec {ns} ip route get {destination}"
         result = await run_cmd(cmd)
 
@@ -70,25 +79,42 @@ class RouteVerifier:
 
     async def traceroute_first_hops(self, ns, destination, max_hops=3):
         """Get first few hops via traceroute"""
-        cmd = (
-            f"sudo ip netns exec {ns} "
-            f"traceroute -4 -n -m {max_hops} -q 1 -w 2 {destination} 2>/dev/null"
-        )
+        if self.isIPV6:
+            cmd = (
+                f"sudo ip netns exec {ns} "
+                f"traceroute -6 -n -m {max_hops} -q 1 -w 2 {destination} 2>/dev/null"
+            )
+        else:
+            cmd = (
+                f"sudo ip netns exec {ns} "
+                f"traceroute -4 -n -m {max_hops} -q 1 -w 2 {destination} 2>/dev/null"
+            )
+
         result = await run_cmd(cmd)
 
         if result["returncode"] != 0:
             return []
 
-        hops = []
-        for line in result["stdout"].split('\n'):
-            # Parse: " 1  192.168.1.1  0.5 ms"
-            match = re.search(r'^\s*(\d+)\s+([\d.]+|\*)', line)
-            if match:
-                hop_num = int(match.group(1))
-                hop_ip = match.group(2) if match.group(2) != '*' else None
-                hops.append({"hop": hop_num, "ip": hop_ip})
-
-        return hops
+        if self.isIPV6:
+            hops = []
+            for line in result["stdout"].split('\n'):
+                # Parse: " 1  2001:db8::1  0.5 ms"
+                match = re.search(r'^\s*(\d+)\s+([\da-f:]+|\*)', line)
+                if match:
+                    hop_num = int(match.group(1))
+                    hop_ip = match.group(2) if match.group(2) != '*' else None
+                    hops.append({"hop": hop_num, "ip": hop_ip})
+            return hops
+        else:
+            hops = []
+            for line in result["stdout"].split('\n'):
+                # Parse: " 1  192.168.1.1  0.5 ms"
+                match = re.search(r'^\s*(\d+)\s+([\d.]+|\*)', line)
+                if match:
+                    hop_num = int(match.group(1))
+                    hop_ip = match.group(2) if match.group(2) != '*' else None
+                    hops.append({"hop": hop_num, "ip": hop_ip})
+            return hops
 
     async def verify_route(self, ns, destination="8.8.8.8"):
         """Complete route verification"""
@@ -104,8 +130,12 @@ class RouteVerifier:
 
         try:
             # Get default gateway
-            gateway = await self.get_default_gateway(ns)
-            route_info["gateway"] = gateway
+            if not self.isIPV6:
+                gateway = await self.get_default_gateway(ns)
+                route_info["gateway"] = gateway
+            else:
+                gateway = self.expected_router_ip
+                route_info["gateway"] = self.expected_router_ip
 
             # Get route to destination
             route = await self.get_route_to_destination(ns, destination)

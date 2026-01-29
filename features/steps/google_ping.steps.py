@@ -15,7 +15,16 @@ def step_ping_google(context, ip_version):
 
     ping_duration = context.config.get("PING_DURATION")
 
-    pm = PingManager(google_dns_ip, ping_duration, ip_version)
+    if ip_version == "IPV6":
+        pm = PingManager(
+            google_dns_ip,
+            ping_duration,
+            ip_version,
+            expected_router_ip=context.ROUTER_IPV6,
+        )
+    else:
+        pm = PingManager(google_dns_ip, ping_duration, ip_version)
+
     context.results = asyncio.run(
         pm.run_test([ns for ns in context.net_mgr.client_namespaces])
     )

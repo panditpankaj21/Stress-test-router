@@ -4,11 +4,10 @@ import random
 import re
 from typing import List, Dict, Any
 from prettytable import PrettyTable
-
-# Assuming these exist in your project
 from utils.logger import logger
 from utils.pi_health_check import health_worker
 from utils.router_health import get_router_health
+from lib.route_verifier import RouteVerifier
 
 
 async def run_exec(cmd_args: List[str]) -> Dict[str, Any]:
@@ -37,11 +36,19 @@ class PingManager:
         duration: int = 10,
         ip_version: str = "IPV4",
         interval: float = 0.5,
+        verify_routes=True,
+        expected_router_ip=None,
     ):
         self.target_ip = target_ip
         self.duration = duration
         self.ip_version = ip_version
         self.interval = interval
+        self.verify_routes = verify_routes
+        self.route_verifier = (
+            RouteVerifier(expected_router_ip, isIPV6=(ip_version == "IPV6"))
+            if verify_routes
+            else None
+        )
 
         # Determine ping flag once
         self.ping_flag = "-6" if self.ip_version == "IPV6" else "-4"
@@ -210,6 +217,39 @@ class PingManager:
         logger.info(f"\n{table}\n{'='*95}\n")
 
     async def run_test(self, namespaces: List[str]):
+
+        logger.info("--- Before Ping Test Verifying the Route ---")
+
+        route_results = []
+        if self.verify_routes and self.route_verifier:
+            logger.info("----- VERIFYING NETWORK ROUTES -----")
+            route_tasks = [
+                self.route_verifier.verify_route(ns, self.target_ip)
+                for ns in namespaces
+            ]
+            route_results = await asyncio.gather(*route_tasks, return_exceptions=True)
+
+            # Filter out exceptions
+            route_results = [r for r in route_results if isinstance(r, dict)]
+
+            # Display route verification results
+            if route_results:
+                self.route_verifier.display_route_summary(route_results)
+
+            # Check if all routes go through expected router (optional strict check)
+            if self.route_verifier.expected_router_ip:
+                non_compliant = [
+                    r["namespace"]
+                    for r in route_results
+                    if r["route_type"] != "via_expected_router"
+                ]
+                if non_compliant:
+                    logger.warning(
+                        f"WARNING: {len(non_compliant)} namespace(s) not using "
+                        f"expected router: {', '.join(non_compliant)}"
+                    )
+        logger.info("----- ROUTE VERIFICATION COMPLETE -----")
+
         logger.info(
             f"--- STARTING PING TEST: {len(namespaces)} Clients -> {self.target_ip} ---"
         )

@@ -14,6 +14,21 @@ import utils.config
 summary_logger = None
 
 
+def get_router_global_ipv6():
+    try:
+        output = subprocess.check_output(
+            ["ip", "-6", "neigh", "show", "dev", "eth0"], text=True
+        )
+        for line in output.splitlines():
+            line = line.strip()
+            # Global IPv6 addresses start with 2xxx or 3xxx (unicast range)
+            if "router" in line and line.split()[0].startswith(("2", "3")):
+                return line.split()[0]
+        return None
+    except Exception as e:
+        raise AssertionError(f"Error: {e}")
+
+
 def setup_summary_logger():
     """
     Sets up the summary logger.
@@ -70,6 +85,9 @@ def cleanup():
 
 def before_all(context):
     global summary_logger
+
+    context.ROUTER_IPV6 = get_router_global_ipv6()
+    logger.info(f"Detected Router IPv6 Address: {context.ROUTER_IPV6}")
 
     summary_logger = setup_summary_logger()
     summary_logger.info("Test Run Started:")

@@ -5,8 +5,7 @@ Feature: Router Stress Testing using Virtual Clients
 
   Background: System Check
     Given the base network interface is available on the system
-
-  @mixed-stress
+    
   Scenario: Run a basic mixed-traffic load test
     Given I initialize the Network Manager
     When I provision "5" virtual clients using macvlan
