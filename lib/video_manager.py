@@ -38,7 +38,6 @@ class VideoManager:
         )
 
         result = await run_cmd(cmd)
-
         is_success = result["returncode"] in [0, 124]
 
         if not is_success:
