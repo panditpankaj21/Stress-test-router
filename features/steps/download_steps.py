@@ -1,15 +1,21 @@
 import asyncio
-from behave import when
+from behave import given, when
 from utils.logger import logger
-from src.download_manager import DownloadManager
+from lib.download_manager import DownloadManager
 
 
-@when("all clients start downloading the 20MB ZIP file simultaneously")
+@given("the download target URL is configured")
+def step_configure_file_url(context):
+
+    context.download_url = context.config.get("DOWNLOAD_URL")
+
+    assert context.download_url, "Download URL missing in config!"
+
+
+@when("all clients start downloading the configured file simultaneously")
 def step_start_parallel_download(context):
     logger.info("----- PARALLEL DOWNLOAD STARTED -----")
-    dm = DownloadManager(
-        url=context.download_url, timeout=context.config.get("DOWNLOAD_TIMEOUT")
-    )
+    dm = DownloadManager()
     context.download_results = asyncio.run(
         dm.start_parallel_download(context.net_mgr.client_namespaces)
     )

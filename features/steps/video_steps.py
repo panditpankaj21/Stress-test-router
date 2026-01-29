@@ -1,7 +1,7 @@
 import asyncio
 from behave import when, then
 from utils.logger import logger
-from src.video_manager import VideoManager
+from lib.video_manager import VideoManager
 
 
 @when("all clients start streaming a video simultaneously")

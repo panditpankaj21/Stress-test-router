@@ -1,8 +1,51 @@
+import os
 import yaml
+import json
 import asyncio
+import logging
 import subprocess
+from dotenv import load_dotenv
+from datetime import datetime
 from utils.logger import logger
 from utils.command_runner import run_cmd
+from utils.router_ssh import create_router_ssh
+import utils.config
+
+summary_logger = None
+
+
+def get_router_global_ipv6():
+    try:
+        output = subprocess.check_output(
+            ["ip", "-6", "neigh", "show", "dev", "eth0"], text=True
+        )
+        for line in output.splitlines():
+            line = line.strip()
+            # Global IPv6 addresses start with 2xxx or 3xxx (unicast range)
+            if "router" in line and line.split()[0].startswith(("2", "3")):
+                return line.split()[0]
+        return None
+    except Exception as e:
+        raise AssertionError(f"Error: {e}")
+
+
+def setup_summary_logger():
+    """
+    Sets up the summary logger.
+    mode='w' ensures the file is cleared when this logger is initialized.
+    """
+    s_logger = logging.getLogger("scenario_summary")
+    s_logger.setLevel(logging.INFO)
+    s_logger.propagate = False
+
+    if not s_logger.handlers:
+        os.makedirs("results/logs", exist_ok=True)
+        handler = logging.FileHandler("results/logs/summary.log", mode='w')
+        formatter = logging.Formatter("%(asctime)s | %(message)s")
+        handler.setFormatter(formatter)
+        s_logger.addHandler(handler)
+
+    return s_logger
 
 
 async def cleanup_namespace(ns):
@@ -41,21 +84,130 @@ def cleanup():
 
 
 def before_all(context):
+    global summary_logger
+
+    context.ROUTER_IPV6 = get_router_global_ipv6()
+    logger.info(f"Detected Router IPv6 Address: {context.ROUTER_IPV6}")
+
+    summary_logger = setup_summary_logger()
+    summary_logger.info("Test Run Started:")
+
+    os.makedirs("results/json", exist_ok=True)
+    with open("results/json/summary.json", "w") as f:
+        json.dump([], f)
+
     logger.info("----- STARTING NETWORK STRESS TEST -----")
-    logger.info("Loading configuration from config.yaml")
-    with open("config.yaml") as file:
-        context.config = yaml.safe_load(file)
-    logger.info("Configuration loaded successfully.")
+
+    try:
+        load_dotenv()
+        logger.info(".env file loaded successfully.")
+    except Exception as e:
+        logger.error(f"Failed to load .env file: {e}")
+        raise AssertionError(f"Failed to load .env file: {e}")
+
+    logger.info("----- EXECUTING SSH LOGIN SCRIPT -----")
+    try:
+        cmd = f"./script/ssh-login.py -i {os.getenv('ROUTER_MAC')}"
+        subprocess.run(
+            cmd,
+            shell=True,
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        logger.info("SSH login script executed successfully.")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"SSH login script failed: {e}")
+        raise AssertionError(f"SSH login script failed: {e}")
+
+    context.ssid = os.getenv('WIFI_SSID')
+    context.password = os.getenv('WIFI_PASSWORD')
+
+    if not context.ssid or not context.password:
+        raise ValueError("WIFI_SSID and WIFI_PASSWORD must be set in .env")
+
+    logger.info("----- CLEANING UP BEFORE STARTING TEST -----")
     cleanup()
+    logger.info("----- CLEANUP DONE SUCCESSFULLY -----")
+
+    logger.info("----- INITIALIZING ROUTER SSH MANAGER -----")
+    utils.config.router_ssh = create_router_ssh()
+    try:
+        utils.config.router_ssh.connect()
+        logger.info("Router SSH Manager initialized successfully.")
+    except Exception as e:
+        logger.error(f"Failed to connect to router: {e}")
+        raise AssertionError(f"Failed to Connect to router: {e}")
+
+    logger.info("----- LOADING CONFIGURATION -----")
+    try:
+        with open("config.yaml") as file:
+            context.config = yaml.safe_load(file)
+        logger.info("Configuration loaded successfully.")
+    except Exception as e:
+        logger.error(f"Failed to load configuration: {e}")
+        raise AssertionError(f"Failed to load configuration: {e}")
 
 
 def before_scenario(context, scenario):
-    logger.info("----- BEFORE SCENARIO CLEANING PROCESS STARTS -----")
+    logger.info("\n" + "----- BEFORE SCENARIO CLEANING PROCESS STARTS -----")
     cleanup()
+    scenario.start_time = datetime.now().isoformat()
     logger.info("----- CLEANUP DONE SUCCESSFULLY -----")
+
+
+def after_scenario(context, scenario):
+    end_time = datetime.now().isoformat()
+    steps_data = []
+    failure_message = None
+
+    for step in scenario.steps:
+        step_info = {"name": step.name, "status": step.status.name}
+        if step.status.name == "failed":
+            step_info["failure_message"] = str(step.exception)
+            failure_message = str(step.exception)
+        elif step.status.name == "undefined":
+            step_info["failure_message"] = "Step definition not found"
+            failure_message = "Step definition not found"
+        elif step.status.name == "skipped":
+            step_info["failure_message"] = "Step skipped due to previous failure"
+        steps_data.append(step_info)
+
+    scenario_result = {
+        "feature": scenario.feature.name,
+        "scenario": scenario.name,
+        "status": scenario.status.name,
+        "steps": steps_data,
+        "timestamps": {
+            "start": getattr(scenario, 'start_time', datetime.now().isoformat()),
+            "end": end_time,
+        },
+        "failure_message": failure_message,
+    }
+
+    json_file = "results/json/summary.json"
+    try:
+        with open(json_file, "r") as f:
+            data = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        data = []
+
+    data.append(scenario_result)
+
+    with open(json_file, "w") as f:
+        json.dump(data, f, indent=2)
+
+    if summary_logger:
+        summary_logger.info(
+            f"Feature: {scenario.feature.name} | Scenario: {scenario.name} | "
+            f"Status: {scenario.status.name} | Failure: {failure_message or 'None'}"
+        )
+
+    logger.info(f"Scenario '{scenario.name}' finished. Result: {scenario.status.name}")
 
 
 def after_all(context):
     logger.info("----- END CLEANING PROCESS STARTS -----")
     cleanup()
     logger.info("----- CLEANUP DONE SUCCESSFULLY -----")
+    utils.config.router_ssh.disconnect()

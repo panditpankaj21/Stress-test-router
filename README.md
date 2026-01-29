@@ -6,7 +6,7 @@
 [![Linux Kernel](https://img.shields.io/badge/Linux-Kernel%20Docs-black)](https://kernel.org/doc/html/latest/)
 [![Network Namespace](https://img.shields.io/badge/Network%20Namespace-Isolation%20Tech-blue)](https://man7.org/linux/man-pages/man7/network_namespaces.7.html)
 [![CI Status](https://img.shields.io/badge/CI-Passing-brightgreen)](https://github.com/panditpankaj21/Stress-test-router/actions)
-[![Documentation](https://img.shields.io/badge/Docs-Available-blue)](https://github.com/panditpankaj21/Stress-test-router/tree/main/docs)
+[![Documentation](https://img.shields.io/badge/Docs-Available-blue)](https://panditpankaj21.github.io/Stress-test-router/)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-yellow)](https://www.python.org/downloads/release/python-3100/)
 [![Raspberry Pi](https://img.shields.io/badge/Platform-Raspberry%20Pi-red)](https://www.raspberrypi.com/software/)
 [![License](https://img.shields.io/github/license/panditpankaj21/Stress-test-router)](https://github.com/panditpankaj21/Stress-test-router/blob/main/LICENSE)

@@ -3,3 +3,6 @@ src/__pycache__
 utils/__pycache__
 __pycache__
 .venv
+.env
+__pycache__/
+*.pyc

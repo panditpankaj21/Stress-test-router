@@ -28,7 +28,7 @@ async def health_worker(stop_event):
         data = await get_pi_health()
         temp_str = f"{data['temp']:.1f}C" if data["temp"] is not None else "N/A"
         logger.info(
-            f"[PI HEALTH] CPU={data['cpu']}% | Temp={temp_str} | "
-            f"RAM={data['ram']}% | Disk={data['disk']}% | Load={data['load']}"
+            f"[PI     ] CPU={data['cpu']}%  Temp={temp_str}  "
+            f"RAM={data['ram']}%  Disk={data['disk']}%  Load={data['load']}"
         )
         await asyncio.sleep(5)

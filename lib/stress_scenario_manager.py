@@ -5,6 +5,8 @@ import time
 import threading
 from utils.logger import logger
 from utils.command_runner import run_cmd
+from utils.pi_health_check import health_worker
+from utils.router_health import get_router_health
 
 
 class StressScenarioManager:
@@ -54,15 +56,26 @@ class StressScenarioManager:
             )
             time.sleep(1)
 
-        print("\rProgress: 100% | Done!                 ")
+        print("\rProgress: 100% | Done!                  ")
 
     async def start(self, namespaces):
+
+        if not namespaces:
+            raise AssertionError("Critical: No namespaces provided for stress test.")
+
         logger.info("======= STRESS TEST START =======")
+
+        stop_event_pi = asyncio.Event()
+        stop_event_router = asyncio.Event()
 
         start_time = time.time()
         end_time = start_time + self.duration
 
-        tasks = [self._dns_query, self._tcp_connect, self._http_router_hit]
+        tasks = [
+            self._dns_query,
+            self._tcp_connect,
+            self._http_router_hit,
+        ]
 
         assigned = {}
 
@@ -90,7 +103,29 @@ class StressScenarioManager:
         )
         progress_thread.start()
 
+        pi_task = asyncio.create_task(health_worker(stop_event_pi))
+        router_task = asyncio.create_task(get_router_health(stop_event_router))
+
         await asyncio.gather(*futures)
 
+        stop_event_pi.set()
+        stop_event_router.set()
+        await pi_task
+        await router_task
+
         logger.info("\n======= COMPLETE =======")
+
+        missing_ns = set(namespaces) - set(result_dict.keys())
+        if missing_ns:
+            raise AssertionError(
+                f"Stress Test Failed: No results received for namespaces: {missing_ns}"
+            )
+
+        failed_ns = {ns: count for ns, count in result_dict.items() if count == 0}
+        if failed_ns:
+            raise AssertionError(
+                f"Stress Test Failed: Zero iterations executed "
+                f"for: {list(failed_ns.keys())}. Check commands/connectivity."
+            )
+
         return result_dict

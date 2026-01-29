@@ -1,0 +1,38 @@
+[
+  {
+    "feature": "External Internet Reachability",
+    "scenario": "Verify IPv4 internet access for 5 concurrent virtual clients",
+    "status": "passed",
+    "steps": [
+      {
+        "name": "I initialize the Network Manager",
+        "status": "passed"
+      },
+      {
+        "name": "I provision \"3\" virtual clients using macvlan",
+        "status": "passed"
+      },
+      {
+        "name": "no two clients should have the same IP address",
+        "status": "passed"
+      },
+      {
+        "name": "all assigned IPs should be reachable",
+        "status": "passed"
+      },
+      {
+        "name": "all clients attempt to ping Google DNS \"IPV4\"",
+        "status": "passed"
+      },
+      {
+        "name": "each client should successfully reach the internet",
+        "status": "passed"
+      }
+    ],
+    "timestamps": {
+      "start": "2026-01-29T11:48:10.542993",
+      "end": "2026-01-29T11:49:12.241564"
+    },
+    "failure_message": null
+  }
+]

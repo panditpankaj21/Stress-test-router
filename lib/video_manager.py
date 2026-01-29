@@ -1,7 +1,7 @@
 import asyncio
-import subprocess
 from utils.logger import logger
 from utils.pi_health_check import health_worker
+from utils.router_health import get_router_health
 
 
 async def run_cmd(cmd, suppress_output=False):
@@ -37,19 +37,38 @@ class VideoManager:
             f"{url}"
         )
 
-        try:
-            await run_cmd(cmd)
-        except subprocess.CalledProcessError as e:
-            logger.error(f"[ERROR] {ns} mpv crashed with code {e.returncode}")
+        result = await run_cmd(cmd)
+        is_success = result["returncode"] in [0, 124]
+
+        if not is_success:
+            logger.error(
+                f"[ERROR] {ns} stream failed. Code: {result['returncode']} | Stderr: {result['stderr']}"
+            )
+
+        return {
+            "success": is_success,
+            "returncode": result["returncode"],
+            "stdout": result["stdout"],
+            "stderr": result["stderr"],
+        }
 
     async def start_parallel_streaming(self, namespaces: list[str]) -> dict:
-        stop_event = asyncio.Event()
+        stop_event_pi = asyncio.Event()
+        stop_event_router = asyncio.Event()
+
         tasks = [
             self._stream_with_mpv(ns, self.video_ids[i % len(self.video_ids)])
             for i, ns in enumerate(namespaces)
         ]
-        health_task = asyncio.create_task(health_worker(stop_event))
+
+        pi_task = asyncio.create_task(health_worker(stop_event_pi))
+        router_task = asyncio.create_task(get_router_health(stop_event_router))
+
         results_list = await asyncio.gather(*tasks)
-        stop_event.set()
-        await health_task
+
+        stop_event_pi.set()
+        stop_event_router.set()
+        await pi_task
+        await router_task
+
         return {ns: res for ns, res in zip(namespaces, results_list)}

@@ -6,3 +6,7 @@ PyYAML
 psutil
 mkdocs
 mkdocs-material
+dotenv
+paramiko
+prettytable
+colorlog
