@@ -44,6 +44,7 @@ class PingManager:
         self.ip_version = ip_version
         self.interval = interval
         self.verify_routes = verify_routes
+        logger.info(f"****the Second Update router ip is: {expected_router_ip}")
         self.route_verifier = (
             RouteVerifier(expected_router_ip, isIPV6=(ip_version == "IPV6"))
             if verify_routes

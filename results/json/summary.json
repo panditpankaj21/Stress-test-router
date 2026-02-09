@@ -1,7 +1,7 @@
 [
   {
-    "feature": "External Internet Reachability",
-    "scenario": "Verify IPv4 internet access for 5 concurrent virtual clients",
+    "feature": "Concurrent Video Streaming Stress Test",
+    "scenario": "Stream video on 5 clients simultaneously",
     "status": "passed",
     "steps": [
       {
@@ -9,7 +9,7 @@
         "status": "passed"
       },
       {
-        "name": "I provision \"3\" virtual clients using macvlan",
+        "name": "I provision \"100\" virtual clients using macvlan",
         "status": "passed"
       },
       {
@@ -21,17 +21,17 @@
         "status": "passed"
       },
       {
-        "name": "all clients attempt to ping Google DNS \"IPV4\"",
+        "name": "all clients start streaming a video simultaneously",
         "status": "passed"
       },
       {
-        "name": "each client should successfully reach the internet",
+        "name": "each client should successfully stream for the given duration",
         "status": "passed"
       }
     ],
     "timestamps": {
-      "start": "2026-01-29T11:48:10.542993",
-      "end": "2026-01-29T11:49:12.241564"
+      "start": "2026-02-09T15:19:26.512539",
+      "end": "2026-02-09T15:27:43.002513"
     },
     "failure_message": null
   }

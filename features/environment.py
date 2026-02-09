@@ -5,6 +5,7 @@ import asyncio
 import logging
 import subprocess
 from dotenv import load_dotenv
+import time
 from datetime import datetime
 from utils.logger import logger
 from utils.command_runner import run_cmd
@@ -13,21 +14,31 @@ import utils.config
 
 summary_logger = None
 
+def shorten_ipv6_one_digit(addr):
+    if "::" in addr:
+        prefix, rest = addr.split("::", 1)
+        if rest:  
+            first_group = rest.split(":")[0]
+            return prefix + "::" + first_group[0]
+        else:
+            return prefix + "::"
+    return addr
+
 
 def get_router_global_ipv6():
     try:
+        logger.info("Fetching global IPv6 address")
         output = subprocess.check_output(
-            ["ip", "-6", "neigh", "show", "dev", "eth0"], text=True
-        )
-        for line in output.splitlines():
-            line = line.strip()
-            # Global IPv6 addresses start with 2xxx or 3xxx (unicast range)
-            if "router" in line and line.split()[0].startswith(("2", "3")):
-                return line.split()[0]
+            "ip -6 addr show scope global | awk '/inet6/ {print $2}' | cut -d/ -f1 | head -1",
+            shell=True,
+            text=True
+        ).strip()
+
+        if output.startswith(("2", "3")):
+            return shorten_ipv6_one_digit(output)
         return None
     except Exception as e:
         raise AssertionError(f"Error: {e}")
-
 
 def setup_summary_logger():
     """

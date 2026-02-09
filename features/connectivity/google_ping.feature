@@ -11,5 +11,5 @@ Feature: External Internet Reachability
     When I provision "3" virtual clients using macvlan
     Then no two clients should have the same IP address
     And all assigned IPs should be reachable
-    When all clients attempt to ping Google DNS "IPV4"
+    When all clients attempt to ping Google DNS "IPV6"
     Then each client should successfully reach the internet
