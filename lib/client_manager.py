@@ -155,8 +155,8 @@ class NetworkManager:
 
         logger.info(f"Created {count} namespaces successfully.")
 
-        logger.info("----- After creating client 10 sec Halt ------")
-        await asyncio.sleep(10)
+        logger.info("----- After creating client 20 sec Halt ------")
+        await asyncio.sleep(20)
 
     def display_client_table(self):
         table = PrettyTable()

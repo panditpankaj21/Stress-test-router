@@ -36,7 +36,6 @@ def step_ping_clients(context, ip_version):
     ping_duration = context.config.get("PING_DURATION")
 
     pm = PingManager(
-        context.router_ssh,
         router_ip,
         ping_duration,
         "IPV4" if ip_version == "IPV4" else "IPV6",

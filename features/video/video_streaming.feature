@@ -10,7 +10,7 @@ Feature: Concurrent Video Streaming Stress Test
 
   Scenario: Stream video on 5 clients simultaneously
     Given I initialize the Network Manager
-    When I provision "100" virtual clients using macvlan
+    When I provision "5" virtual clients using macvlan
     Then no two clients should have the same IP address
     And all assigned IPs should be reachable
     When all clients start streaming a video simultaneously

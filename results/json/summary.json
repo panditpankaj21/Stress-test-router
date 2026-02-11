@@ -9,7 +9,7 @@
         "status": "passed"
       },
       {
-        "name": "I provision \"100\" virtual clients using macvlan",
+        "name": "I provision \"5\" virtual clients using macvlan",
         "status": "passed"
       },
       {
@@ -30,8 +30,8 @@
       }
     ],
     "timestamps": {
-      "start": "2026-02-09T15:19:26.512539",
-      "end": "2026-02-09T15:27:43.002513"
+      "start": "2026-02-11T16:14:27.582249",
+      "end": "2026-02-11T16:17:35.067641"
     },
     "failure_message": null
   }

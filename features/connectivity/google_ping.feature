@@ -8,7 +8,7 @@ Feature: External Internet Reachability
 
   Scenario: Verify IPv4 internet access for 5 concurrent virtual clients
     Given I initialize the Network Manager
-    When I provision "3" virtual clients using macvlan
+    When I provision "5" virtual clients using macvlan
     Then no two clients should have the same IP address
     And all assigned IPs should be reachable
     When all clients attempt to ping Google DNS "IPV6"

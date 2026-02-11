@@ -117,19 +117,22 @@ def before_all(context):
         raise AssertionError(f"Failed to load .env file: {e}")
 
     logger.info("----- EXECUTING SSH LOGIN SCRIPT -----")
-    try:
-        cmd = f"./script/ssh-login.py -i {os.getenv('ROUTER_MAC')}"
-        subprocess.run(
-            cmd,
-            shell=True,
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        logger.info("SSH login script executed successfully.")
-    except subprocess.CalledProcessError as e:
-        logger.error(f"SSH login script failed: {e}")
-        raise AssertionError(f"SSH login script failed: {e}")
+    # try:
+    # logger.info(os.getenv('ROUTER_MAC'))
+    cmd = f"./ssh-login.py -i {os.getenv('ROUTER_MAC')}"
+    subprocess.run(
+        cmd,
+        shell=True,
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    # cmd = ["./ssh-login.py", "-i", "90d3cfcd0e75"]
+    # subprocess.run(cmd, check=True)
+    logger.info("SSH login script executed successfully.")
+    # except subprocess.CalledProcessError as e:
+    #     logger.error(f"SSH login script failed: {e}")
+    #     raise AssertionError(f"SSH login script failed: {e}")
 
     context.ssid = os.getenv('WIFI_SSID')
     context.password = os.getenv('WIFI_PASSWORD')

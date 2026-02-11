@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-
 import sys
 import os
 import pprint
@@ -160,6 +159,7 @@ def usage():
 
 
 if __name__ == "__main__":
+
 
     # Parse and interpret options.
     (opts, val) = getopt.getopt(
