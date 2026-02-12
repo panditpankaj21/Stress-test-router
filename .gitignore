@@ -6,3 +6,6 @@ __pycache__
 .env
 __pycache__/
 *.pyc
+results/json/
+results/logs
+reuslts/realtime_log

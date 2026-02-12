@@ -1,7 +1,7 @@
 [
   {
-    "feature": "Concurrent Video Streaming Stress Test",
-    "scenario": "Stream video on 5 clients simultaneously",
+    "feature": "External Internet Reachability",
+    "scenario": "Verify IPv4 internet access for 5 concurrent virtual clients",
     "status": "passed",
     "steps": [
       {
@@ -21,17 +21,17 @@
         "status": "passed"
       },
       {
-        "name": "all clients start streaming a video simultaneously",
+        "name": "all clients attempt to ping Google DNS \"IPV6\"",
         "status": "passed"
       },
       {
-        "name": "each client should successfully stream for the given duration",
+        "name": "each client should successfully reach the internet",
         "status": "passed"
       }
     ],
     "timestamps": {
-      "start": "2026-02-11T16:14:27.582249",
-      "end": "2026-02-11T16:17:35.067641"
+      "start": "2026-02-12T12:51:22.105245",
+      "end": "2026-02-12T12:52:34.451043"
     },
     "failure_message": null
   }
