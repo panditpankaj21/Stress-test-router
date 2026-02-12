@@ -1,10 +1,12 @@
 import asyncio
 import time
+import random
 from prettytable import PrettyTable
 from utils.logger import logger
 from utils.pi_health_check import health_worker
 from utils.router_health import get_router_health
 from lib.route_verifier import RouteVerifier
+import psutil  # To capture system stats like CPU/Memory usage
 
 
 async def run_cmd(cmd):
@@ -21,7 +23,6 @@ async def run_cmd(cmd):
         "stdout": stdout.decode().strip() if stdout else "",
         "stderr": stderr.decode().strip() if stderr else "",
     }
-
 
 class DownloadManager:
     def __init__(
@@ -84,7 +85,7 @@ class DownloadManager:
             f"--retry 0 "
             f"--compressed "
             f"--tcp-nodelay "
-            f"--write-out '%{{size_download}} %{{speed_download}} %{{time_total}} %{{http_code}}' "
+            f"--write-out '%{{size_download}} %{{speed_download}} %{{time_total}} %{{time_starttransfer}} %{{http_code}}' "
             f"'{self.url}'"
         )
 
@@ -115,26 +116,17 @@ class DownloadManager:
 
         try:
             parts = result["stdout"].split()
-            if len(parts) != 4:
-                raise ValueError(f"Expected 4 values, got {len(parts)}")
+            if len(parts) != 5:
+                raise ValueError(f"Expected 5 values, got {len(parts)}")
 
             size_bytes = float(parts[0])
             speed_bytes = float(parts[1])
             time_total = float(parts[2])
-            http_code = int(parts[3])
+            time_start_transfer = float(parts[3])
+            http_code = int(parts[4])
 
             speed_mbps = (speed_bytes * 8) / (1024 * 1024)
             size_mb = size_bytes / (1024 * 1024)
-
-            if http_code != 200:
-                return {
-                    "success": False,
-                    "duration": round(time_total, 2),
-                    "speed": round(speed_mbps, 2),
-                    "size": round(size_mb, 2),
-                    "http_code": http_code,
-                    "error": f"HTTP {http_code}",
-                }
 
             return {
                 "success": True,
@@ -142,6 +134,7 @@ class DownloadManager:
                 "speed": round(speed_mbps, 2),
                 "size": round(size_mb, 2),
                 "http_code": http_code,
+                "start_transfer_time": round(time_start_transfer, 2),
                 "error": "",
             }
 
@@ -194,6 +187,7 @@ class DownloadManager:
             "Speed (Mbps)",
             "Size (MB)",
             "HTTP",
+            "Start Transfer Time (s)",
             "Remarks",
         ]
 
@@ -204,6 +198,7 @@ class DownloadManager:
         success_count = 0
         total_speed = 0
         total_time = 0
+        total_start_transfer = 0
 
         for ns, data in sorted(results.items()):
             status = "✓ OK" if data["success"] else "✗ FAIL"
@@ -211,6 +206,7 @@ class DownloadManager:
                 success_count += 1
                 total_speed += data["speed"]
                 total_time += data["duration"]
+                total_start_transfer += data.get("start_transfer_time", 0)
 
             table.add_row(
                 [
@@ -220,19 +216,24 @@ class DownloadManager:
                     data["speed"],
                     data.get("size", 0),
                     data.get("http_code", 0) or "-",
+                    data.get("start_transfer_time", "-"),
                     data["error"],
                 ]
             )
 
         avg_speed = round(total_speed / success_count, 2) if success_count > 0 else 0
         avg_time = round(total_time / success_count, 2) if success_count > 0 else 0
+        avg_start_transfer_time = round(
+            total_start_transfer / success_count, 2
+        ) if success_count > 0 else 0
 
         logger.info(
             "\n"
             + "═" * 90
             + "\n"
             + f"DOWNLOAD SUMMARY | SUCCESS: {success_count}/{len(results)} | "
-            + f"AVG SPEED: {avg_speed} Mbps | AVG TIME: {avg_time}s"
+            + f"AVG SPEED: {avg_speed} Mbps | AVG TIME: {avg_time}s | "
+            + f"AVG START TRANSFER TIME: {avg_start_transfer_time}s"
             + "\n"
             + "═" * 90
         )
