@@ -17,4 +17,4 @@ async def get_router_health(stop_event):
             print(f"Error checking router health: {e}")
 
         # Non-blocking sleep
-        await asyncio.sleep(5)
+        await asyncio.sleep(2)

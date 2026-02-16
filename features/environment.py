@@ -27,7 +27,6 @@ def shorten_ipv6_one_digit(addr):
 
 def get_router_global_ipv6():
     try:
-        logger.info("Fetching global IPv6 address")
         output = subprocess.check_output(
             "ip -6 addr show scope global | awk '/inet6/ {print $2}' | cut -d/ -f1 | head -1",
             shell=True,
@@ -98,7 +97,6 @@ def before_all(context):
     global summary_logger
 
     context.ROUTER_IPV6 = get_router_global_ipv6()
-    logger.info(f"Detected Router IPv6 Address: {context.ROUTER_IPV6}")
 
     summary_logger = setup_summary_logger()
     summary_logger.info("Test Run Started:")
@@ -107,7 +105,7 @@ def before_all(context):
     with open("results/json/summary.json", "w") as f:
         json.dump([], f)
 
-    logger.info("----- STARTING NETWORK STRESS TEST -----")
+    logger.info("----- STARTING TEST -----")
 
     try:
         load_dotenv()

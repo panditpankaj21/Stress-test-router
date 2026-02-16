@@ -5,6 +5,8 @@ import shlex
 from utils.logger import logger
 from utils.command_runner import run_cmd
 from prettytable import PrettyTable
+from utils.pi_health_check import health_worker
+from utils.router_health import get_router_health
 
 
 class NetworkManager:
@@ -39,9 +41,9 @@ class NetworkManager:
                     ipv6_only = ip_v6.split("/")[0]
 
                 if ipv4_only:
-                    logger.info(
-                        f"{namespace} got IPv4: {ipv4_only} and IPv6: {ipv6_only or 'Not created'}"
-                    )
+                    # logger.info(
+                    #     f"{namespace} got IPv4: {ipv4_only} and IPv6: {ipv6_only or 'Not created'}"
+                    # )
                     self.client_info[namespace] = {
                         "mac": mac,
                         "ipv4": ipv4_only,
@@ -134,11 +136,24 @@ class NetworkManager:
     async def create_clients(self, count):
         start_time = time.monotonic()
 
+        stop_event_pi = asyncio.Event()
+        stop_event_router = asyncio.Event()
+
+        # Background Health Checks
+        pi_task = asyncio.create_task(health_worker(stop_event_pi))
+        router_task = asyncio.create_task(get_router_health(stop_event_router))
+
+
         tasks = [self.create_client(i) for i in range(1, count + 1)]
         await asyncio.gather(*tasks)
 
         end_time = time.monotonic()
+
         elapsed_time = end_time - start_time
+
+        stop_event_pi.set()
+        stop_event_router.set()
+
         logger.info(f"Client creation took {elapsed_time / 60:.2f} minutes.")
 
         logger.info(f"----- ONLY {self.count} / {count} got IP ------")

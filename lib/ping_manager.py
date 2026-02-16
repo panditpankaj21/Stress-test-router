@@ -234,6 +234,7 @@ class PingManager:
             f"{'='*95}"
         )
         logger.info(f"\n{table}\n{'='*95}\n")
+        
 
     async def run_test(self, namespaces: List[str]):
 
