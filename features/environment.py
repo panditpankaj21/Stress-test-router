@@ -152,11 +152,11 @@ def before_all(context):
         logger.error(f"Failed to connect to router: {e}")
         raise AssertionError(f"Failed to Connect to router: {e}")
     
-    # get all information about the Router here and run command
+    
+    # getting information about the Router
+    logger.info("----- Getting Router Info -----")
     try: 
-        logger.info("----- Getting Router Info -----")
         context.router_info = utils.config.router_ssh.get_router_info()
-        logger.info(context.router_info)
     except Exception as e:
         logger.info(f"Failed to get Riouter information: {e}")
         raise AssertionError(f"Failed to get Riouter information: {e}")
@@ -180,6 +180,23 @@ def before_scenario(context, scenario):
 
 
 def after_scenario(context, scenario):
+     
+    #getting information about the secenario and feature
+    context.scenario_name = scenario.name
+    context.feature_name = scenario.feature.name
+    context.status = scenario.status.name
+
+    logger.info("----- displaying the information --------")
+
+    logger.info(context.router_info)
+    logger.info(context.scenario_name)
+    logger.info(context.feature_name)
+    logger.info(context.status)
+    logger.info(context.number_of_clients)
+
+    logger.info("----- end of the displaying the info -----")
+
+
     end_time = datetime.now().isoformat()
     steps_data = []
     failure_message = None

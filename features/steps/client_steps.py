@@ -15,6 +15,8 @@ def step_init_manager(context):
 def step_provision_clients(context, count):
     logger.info(f"----- Creating {count} Virtual Clients -----")
 
+    context.number_of_clients = count
+
     asyncio.run(context.net_mgr.create_clients(count))
     logger.info(
         f"STATUS: {count} clients successfully created and assigned IP addresses."
