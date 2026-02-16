@@ -1,13 +1,10 @@
-Feature: Virtual Client Connectivity and Reachability
-  As a Network Test Engineer
-  I want to validate that the Router can handle multiple concurrent connections
-  So that I can ensure stable IP allocation and packet forwarding for attached devices
+Feature: client creation
 
   Background: System Check
     Given the router IP address is configured
     And the base network interface is available on the system
 
-  Scenario: Validate IPV4 connectivity with 5 concurrent virtual clients
+  Scenario: client creation
     Given I initialize the Network Manager
     When I provision "5" virtual clients using macvlan
     Then no two clients should have the same IP address
