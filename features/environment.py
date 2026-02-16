@@ -1,4 +1,5 @@
 import os
+import re
 import yaml
 import json
 import asyncio
@@ -150,6 +151,16 @@ def before_all(context):
     except Exception as e:
         logger.error(f"Failed to connect to router: {e}")
         raise AssertionError(f"Failed to Connect to router: {e}")
+    
+    # get all information about the Router here and run command
+    try: 
+        logger.info("----- Getting Router Info -----")
+        context.router_info = utils.config.router_ssh.get_router_info()
+        logger.info(context.router_info)
+    except Exception as e:
+        logger.info(f"Failed to get Riouter information: {e}")
+        raise AssertionError(f"Failed to get Riouter information: {e}")
+
 
     logger.info("----- LOADING CONFIGURATION -----")
     try:
