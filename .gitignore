@@ -9,3 +9,5 @@ __pycache__/
 results/json/
 results/logs
 reuslts/realtime_log
+test_reports/
+test_reports

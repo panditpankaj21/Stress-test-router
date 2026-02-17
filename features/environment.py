@@ -12,8 +12,12 @@ from utils.logger import logger
 from utils.command_runner import run_cmd
 from utils.router_ssh import create_router_ssh
 import utils.config
+from lib.mongo_handler import TestDataHandler
+from lib.report_generator import ReportGenerator
 
 summary_logger = None
+
+MONGODB_CONNECTION_STRING = "mongodb+srv://pkp20022_db_user:Nfo60hcufd2tVwLW@cluster0.cxkwlpd.mongodb.net/"
 
 def shorten_ipv6_one_digit(addr):
     if "::" in addr:
@@ -101,6 +105,10 @@ def before_all(context):
 
     summary_logger = setup_summary_logger()
     summary_logger.info("Test Run Started:")
+
+    """Initialize MongoDB handler"""
+    context.db_handler = TestDataHandler(MONGODB_CONNECTION_STRING)
+    context.report_generator = ReportGenerator(output_dir="test_reports")
 
     os.makedirs("results/json", exist_ok=True)
     with open("results/json/summary.json", "w") as f:
@@ -190,11 +198,12 @@ def after_scenario(context, scenario):
     context.scenario_name = scenario.name
     context.feature_name = scenario.feature.name
     context.status = scenario.status.name
-    context.linux_cpu_creation = utils.config.linux_cpu_creation
-    context.linux_cpu_test = utils.config.linux_cpu_test
-    context.time_take = utils.config.time_taken
-    context.router_cpu_creation = utils.config.router_cpu_creation
-    context.router_cpu_test = utils.config.router_cpu_test
+    context.linux_avg_cpu_creation = utils.config.linux_cpu_creation
+    context.linux_avg_cpu_test = utils.config.linux_cpu_test
+    context.time_taken = utils.config.time_taken
+    context.router_avg_cpu_creation = utils.config.router_cpu_creation
+    context.router_avg_cpu_test = utils.config.router_cpu_test
+    context.test_time = datetime.now().isoformat()
 
     logger.info("----- displaying the information --------")
 
@@ -206,13 +215,89 @@ def after_scenario(context, scenario):
     logger.info(context.feature_name)
     logger.info(context.status)
     logger.info(context.number_of_clients)
-    logger.info(context.linux_cpu_creation)
-    logger.info(context.linux_cpu_test)
-    logger.info(context.time_take)
-    logger.info(context.router_cpu_creation)
-    logger.info(context.router_cpu_test)
+    logger.info(context.linux_avg_cpu_creation)
+    logger.info(context.linux_avg_cpu_test)
+    logger.info(context.time_taken)
+    logger.info(context.router_avg_cpu_creation)
+    logger.info(context.router_avg_cpu_test)
 
     logger.info("----- end of the displaying the info -----")
+
+    # Store the test result in MongoDB
+    try:
+        doc_id = context.db_handler.store_test_result(context)
+        print(f"\n✓ Test result stored in MongoDB with ID: {doc_id}")
+    except Exception as e:
+        print(f"\n✗ Failed to store test result: {e}")
+        return
+    
+
+
+    if hasattr(context, 'router_mac') and hasattr(context, 'feature_name') and hasattr(context, 'number_of_clients'):
+        try:
+            # Get historical data for comparison
+            historical_data = context.db_handler.get_filtered_results(
+                router_mac=context.router_mac,
+                feature_name=context.feature_name,
+                number_of_clients=context.number_of_clients,
+                limit=50  # Last 50 tests
+            )
+            
+            if historical_data:
+                # Prepare current test data
+                current_test = {
+                    'router_mac': context.router_mac,
+                    'router_firmware': getattr(context, 'router_firmware', 'Unknown'),
+                    'router_name': getattr(context, 'router_name', 'Unknown'),
+                    'router_model': getattr(context, 'router_model', 'Unknown'),
+                    'status': getattr(context, 'status', 'Unknown'),
+                    'scenario_name': context.scenario_name,
+                    'feature_name': context.feature_name,
+                    'linux_avg_cpu_creation': getattr(context, 'linux_avg_cpu_creation', 0),
+                    'linux_avg_cpu_test': getattr(context, 'linux_avg_cpu_test', 0),
+                    'router_avg_cpu_creation': getattr(context, 'router_avg_cpu_creation', 0),
+                    'router_avg_cpu_test': getattr(context, 'router_avg_cpu_test', 0),
+                    'number_of_clients': context.number_of_clients,
+                    'time_taken': getattr(context, 'time_taken', 0),
+                    'metrics': getattr(context, 'metrics', {}),
+                    'test_time': getattr(context, 'test_time', None)
+                }
+                
+                # Generate plots
+                router_cpu_img = context.report_generator.generate_router_cpu_plot(
+                    historical_data, current_test
+                )
+                linux_cpu_img = context.report_generator.generate_linux_cpu_plot(
+                    historical_data, current_test
+                )
+                time_taken_img = context.report_generator.generate_time_taken_plot(
+                    historical_data, current_test
+                )
+                
+                # Calculate metrics averages
+                metrics_data = context.report_generator.calculate_metrics_average(historical_data)
+                
+                # Generate HTML report
+                report_path = context.report_generator.generate_html_report(
+                    current_test=current_test,
+                    historical_data=historical_data,
+                    router_cpu_img=router_cpu_img,
+                    linux_cpu_img=linux_cpu_img,
+                    time_taken_img=time_taken_img,
+                    metrics_data=metrics_data
+                )
+                
+                print(f"\n✓ Report generated: {report_path}")
+                print(f"  Open in browser: file://{os.path.abspath(report_path)}")
+            else:
+                print("\n⚠ No historical data found for comparison")
+                
+        except Exception as e:
+            print(f"\n✗ Failed to generate report: {e}")
+            import traceback
+            traceback.print_exc()
+
+
 
 
     end_time = datetime.now().isoformat()
@@ -267,3 +352,8 @@ def after_all(context):
     cleanup()
     logger.info("----- CLEANUP DONE SUCCESSFULLY -----")
     utils.config.router_ssh.disconnect()
+
+    #Clean up MongoDB connection
+    if hasattr(context, 'db_handler'):
+        context.db_handler.close()
+        print("\n✓ MongoDB connection closed")

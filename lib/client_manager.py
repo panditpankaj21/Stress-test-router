@@ -156,7 +156,7 @@ class NetworkManager:
         stop_event_router.set()
 
         logger.info(f"Client creation took {elapsed_time / 60:.2f} minutes.")
-        utils.config.time_taken = f"{elapsed_time / 60:.2f}"
+        utils.config.time_taken = elapsed_time / 60
 
         logger.info(f"----- ONLY {self.count} / {count} got IP ------")
         self.count = 0
