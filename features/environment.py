@@ -156,7 +156,12 @@ def before_all(context):
     # getting information about the Router
     logger.info("----- Getting Router Info -----")
     try: 
-        context.router_info = utils.config.router_ssh.get_router_info()
+        router_info = utils.config.router_ssh.get_router_info()
+        context.router_mac = router_info.get('router_mac')
+        context.router_firmware = router_info.get('router_firmware')
+        context.router_name = router_info.get('router_name')
+        context.router_model = router_info.get('router_model')
+        
     except Exception as e:
         logger.info(f"Failed to get Riouter information: {e}")
         raise AssertionError(f"Failed to get Riouter information: {e}")
@@ -185,14 +190,27 @@ def after_scenario(context, scenario):
     context.scenario_name = scenario.name
     context.feature_name = scenario.feature.name
     context.status = scenario.status.name
+    context.linux_cpu_creation = utils.config.linux_cpu_creation
+    context.linux_cpu_test = utils.config.linux_cpu_test
+    context.time_take = utils.config.time_taken
+    context.router_cpu_creation = utils.config.router_cpu_creation
+    context.router_cpu_test = utils.config.router_cpu_test
 
     logger.info("----- displaying the information --------")
 
-    logger.info(context.router_info)
+    logger.info(context.router_mac)
+    logger.info(context.router_firmware)
+    logger.info(context.router_name)
+    logger.info(context.router_model)
     logger.info(context.scenario_name)
     logger.info(context.feature_name)
     logger.info(context.status)
     logger.info(context.number_of_clients)
+    logger.info(context.linux_cpu_creation)
+    logger.info(context.linux_cpu_test)
+    logger.info(context.time_take)
+    logger.info(context.router_cpu_creation)
+    logger.info(context.router_cpu_test)
 
     logger.info("----- end of the displaying the info -----")
 
@@ -242,8 +260,6 @@ def after_scenario(context, scenario):
             f"Feature: {scenario.feature.name} | Scenario: {scenario.name} | "
             f"Status: {scenario.status.name} | Failure: {failure_message or 'None'}"
         )
-
-    logger.info(f"Scenario '{scenario.name}' finished. Result: {scenario.status.name}")
 
 
 def after_all(context):

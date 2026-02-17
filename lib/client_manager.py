@@ -7,6 +7,7 @@ from utils.command_runner import run_cmd
 from prettytable import PrettyTable
 from utils.pi_health_check import health_worker
 from utils.router_health import get_router_health
+import utils.config
 
 
 class NetworkManager:
@@ -140,8 +141,8 @@ class NetworkManager:
         stop_event_router = asyncio.Event()
 
         # Background Health Checks
-        pi_task = asyncio.create_task(health_worker(stop_event_pi))
-        router_task = asyncio.create_task(get_router_health(stop_event_router))
+        pi_task = asyncio.create_task(health_worker(stop_event_pi, "creation"))
+        router_task = asyncio.create_task(get_router_health(stop_event_router, "creation"))
 
 
         tasks = [self.create_client(i) for i in range(1, count + 1)]
@@ -155,6 +156,7 @@ class NetworkManager:
         stop_event_router.set()
 
         logger.info(f"Client creation took {elapsed_time / 60:.2f} minutes.")
+        utils.config.time_taken = f"{elapsed_time / 60:.2f}"
 
         logger.info(f"----- ONLY {self.count} / {count} got IP ------")
         self.count = 0

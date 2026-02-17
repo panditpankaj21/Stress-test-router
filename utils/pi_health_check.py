@@ -2,6 +2,7 @@ import psutil
 import os
 import asyncio
 from utils.logger import logger
+import utils.config
 
 
 async def get_pi_health():
@@ -23,7 +24,9 @@ async def get_pi_health():
     }
 
 
-async def health_worker(stop_event):
+async def health_worker(stop_event, type="test"):
+    cnt = 1
+    pi_cpu = 0
     while not stop_event.is_set():
         data = await get_pi_health()
         temp_str = f"{data['temp']:.1f}C" if data["temp"] is not None else "N/A"
@@ -31,4 +34,11 @@ async def health_worker(stop_event):
             f"[PI     ] CPU={data['cpu']}%  Temp={temp_str}  "
             f"RAM={data['ram']}%  Disk={data['disk']}%  Load={data['load']}"
         )
+        pi_cpu = 100 - data['cpu']
+        cnt = cnt + 1
         await asyncio.sleep(2)
+    
+    if type=="creation":
+        utils.config.linux_cpu_creation = pi_cpu/cnt
+    else:
+        utils.config.linux_cpu_test = pi_cpu/cnt
