@@ -14,6 +14,7 @@ from utils.router_ssh import create_router_ssh
 import utils.config
 from lib.mongo_handler import TestDataHandler
 from lib.report_generator import ReportGenerator
+from lib.excel_report_generator import ExcelReportGenerator
 
 summary_logger = None
 
@@ -226,9 +227,9 @@ def after_scenario(context, scenario):
     # Store the test result in MongoDB
     try:
         doc_id = context.db_handler.store_test_result(context)
-        print(f"\n✓ Test result stored in MongoDB with ID: {doc_id}")
+        logger.info(f"\n✓ Test result stored in MongoDB with ID: {doc_id}")
     except Exception as e:
-        print(f"\n✗ Failed to store test result: {e}")
+        logger.info(f"\n✗ Failed to store test result: {e}")
         return
     
 
@@ -287,13 +288,13 @@ def after_scenario(context, scenario):
                     metrics_data=metrics_data
                 )
                 
-                print(f"\n✓ Report generated: {report_path}")
-                print(f"  Open in browser: file://{os.path.abspath(report_path)}")
+                logger.info(f"\n✓ Report generated: {report_path}")
+                logger.info(f"  Open in browser: file://{os.path.abspath(report_path)}")
             else:
-                print("\n⚠ No historical data found for comparison")
+                logger.info("\n⚠ No historical data found for comparison")
                 
         except Exception as e:
-            print(f"\n✗ Failed to generate report: {e}")
+            logger.info(f"\n✗ Failed to generate report: {e}")
             import traceback
             traceback.print_exc()
 
@@ -353,7 +354,53 @@ def after_all(context):
     logger.info("----- CLEANUP DONE SUCCESSFULLY -----")
     utils.config.router_ssh.disconnect()
 
-    #Clean up MongoDB connection
+    
+    # Ask if user wants Excel report
+    logger.info("\n" + "="*70)
+    logger.info(" TEST EXECUTION COMPLETED")
+    logger.info("\n"+"="*70)
+    
+    response = input("\n Do you want to generate an Excel report of all tests? (yes/no): ").strip().lower()
+    
+    if response in ['yes', 'y']:
+        try:
+            logger.info("\n⏳ Generating Excel report...")
+            
+            # Retrieve all test data from MongoDB
+            all_tests = context.db_handler.get_all_test_results()
+            
+            if not all_tests:
+                logger.info("  No test data found in database!")
+            else:
+                # Generate Excel report
+                excel_generator = ExcelReportGenerator()
+                
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                excel_filename = f"test_report_{timestamp}.xlsx"
+                excel_path = os.path.join("test_reports", excel_filename)
+                
+                # Ensure output directory exists
+                os.makedirs("test_reports", exist_ok=True)
+                
+                generated_path = excel_generator.generate_excel_report(all_tests, excel_path)
+                
+                logger.info(f"\n Excel report generated successfully!")
+                logger.info(f" File location: {os.path.abspath(generated_path)}")
+                logger.info(f" Total tests included: {len(all_tests)}")
+                logger.info(f" Routers analyzed: {len(set(t.get('router_mac') for t in all_tests if t.get('router_mac')))}")
+                
+        except Exception as e:
+            logger.info(f"\n Failed to generate Excel report: {e}")
+            import traceback
+            traceback.print_exc()
+    else:
+        logger.info("\n Skipping Excel report generation.")
+    
+    # Close MongoDB connection
     if hasattr(context, 'db_handler'):
         context.db_handler.close()
-        print("\n✓ MongoDB connection closed")
+        logger.info("\n✓ MongoDB connection closed")
+    
+    logger.info("\n" + "="*70)
+    logger.info(" Thank you for using the test framework! \n")
+    logger.info("="*70 + "\n")

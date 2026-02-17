@@ -43,8 +43,8 @@ class ReportGenerator:
                    color='r', linestyle='--', label='Average', alpha=0.7)
         ax1.set_xlabel('Test Time', fontsize=11)
         ax1.set_ylabel('CPU Utilization (%)', fontsize=11)
-        ax1.set_title(f'Router CPU During Client Creation\n{current_test.get("router_name", "Unknown")} - '
-                     f'{current_test.get("number_of_clients", 0)} Clients', fontsize=13, fontweight='bold')
+        ax1.set_title(f'Router CPU During Client Creation\nFeature: {current_test.get("feature_name", "Unknown")} - '
+                     f'{current_test.get("number_of_clients", 0)} Client', fontsize=13, fontweight='bold')
         ax1.legend()
         ax1.grid(True, alpha=0.3)
         ax1.xaxis.set_major_formatter(mdates.DateFormatter('%m/%d %H:%M'))
@@ -65,7 +65,7 @@ class ReportGenerator:
         
         plt.tight_layout()
         
-        filename = f"router_cpu_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+        filename = f"{current_test.get('router_model')}_{current_test.get('router_name')}_cpu_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
         filepath = os.path.join(self.output_dir, filename)
         plt.savefig(filepath, dpi=300, bbox_inches='tight')
         plt.close()
@@ -95,8 +95,8 @@ class ReportGenerator:
                    color='r', linestyle='--', label='Average', alpha=0.7)
         ax1.set_xlabel('Test Time', fontsize=11)
         ax1.set_ylabel('CPU Utilization (%)', fontsize=11)
-        ax1.set_title(f'Linux CPU During Client Creation\n'
-                     f'{current_test.get("number_of_clients", 0)} Clients', fontsize=13, fontweight='bold')
+        ax1.set_title(f'Linux CPU During Client Creation\nFeature: {current_test.get("feature_name", "Unknown")} -'
+                     f'{current_test.get("number_of_clients", 0)} Client', fontsize=13, fontweight='bold')
         ax1.legend()
         ax1.grid(True, alpha=0.3)
         ax1.xaxis.set_major_formatter(mdates.DateFormatter('%m/%d %H:%M'))
@@ -117,7 +117,7 @@ class ReportGenerator:
         
         plt.tight_layout()
         
-        filename = f"linux_cpu_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+        filename = f"machine_cpu_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
         filepath = os.path.join(self.output_dir, filename)
         plt.savefig(filepath, dpi=300, bbox_inches='tight')
         plt.close()
@@ -144,11 +144,11 @@ class ReportGenerator:
         ax.axhline(y=statistics.mean(time_taken) if time_taken else 0, 
                   color='r', linestyle='--', label='Average', alpha=0.7)
         
-        ax.set_xlabel('Test Time', fontsize=11)
-        ax.set_ylabel('Time (seconds)', fontsize=11)
-        ax.set_title(f'Time Taken to Create Clients Over Time\n'
-                    f'{current_test.get("feature_name", "Unknown")} - '
-                    f'{current_test.get("number_of_clients", 0)} Clients', 
+        ax.set_xlabel('Time Analysis', fontsize=11)
+        ax.set_ylabel('Time (minutes)', fontsize=11)
+        ax.set_title(f'Time Required to Creat Clietns\n'
+                    f'Feature: {current_test.get("feature_name", "Unknown")} - '
+                    f'{current_test.get("number_of_clients", 0)} Client', 
                     fontsize=13, fontweight='bold')
         ax.legend()
         ax.grid(True, alpha=0.3)
@@ -166,7 +166,7 @@ class ReportGenerator:
     
     def calculate_metrics_average(self, test_data: List[Dict]) -> Dict[str, float]:
         """Calculate average of metrics across all tests"""
-        return {}
+
         all_metrics = {}
         
         for test in test_data:
@@ -270,7 +270,6 @@ class ReportGenerator:
                 }}
                 
                 .container {{
-                    max-width: 1200px;
                     margin: 0 auto;
                     background: white;
                     box-shadow: 0 20px 60px rgba(0,0,0,0.3);

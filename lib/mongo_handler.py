@@ -68,6 +68,17 @@ class TestDataHandler:
         
         return list(cursor)
     
+    def get_all_test_results(self) -> List[Dict[str, Any]]:
+        """
+        Retrieve all test results from the database
+        
+        Returns:
+            List of all test documents
+        """
+        return list(self.collection.find({}))
+    
     def close(self):
         """Close MongoDB connection"""
         self.client.close()
+
+    
