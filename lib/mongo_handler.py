@@ -61,7 +61,9 @@ class TestDataHandler:
             "metrics": getattr(context, 'metrics', {}),
             "test_time": getattr(context, 'test_time', datetime.utcnow()),
             "failure_reason": getattr(context, 'failure_reason', ''),  # NEW
-            "inserted_at": datetime.utcnow()
+            "inserted_at": datetime.utcnow(),
+            "start_time": getattr(context, 'start_time', None),
+            "end_time": getattr(context, 'end_time', None)
         }
         
         result = self.collection.insert_one(document)

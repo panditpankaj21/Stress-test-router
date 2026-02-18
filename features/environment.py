@@ -194,6 +194,7 @@ def before_scenario(context, scenario):
     logger.info("\n" + "----- BEFORE SCENARIO CLEANING PROCESS STARTS -----")
     cleanup()
     scenario.start_time = datetime.now().isoformat()
+    context.start_time = datetime.utcnow()
     logger.info("----- CLEANUP DONE SUCCESSFULLY -----")
 
 
@@ -209,6 +210,7 @@ def after_scenario(context, scenario):
     context.router_avg_cpu_creation = utils.config.router_cpu_creation
     context.router_avg_cpu_test = utils.config.router_cpu_test
     context.test_time = datetime.now().isoformat()
+    context.end_time = datetime.utcnow()
 
     logger.info("----- displaying the information --------")
 
@@ -225,6 +227,7 @@ def after_scenario(context, scenario):
     logger.info(context.time_taken)
     logger.info(context.router_avg_cpu_creation)
     logger.info(context.router_avg_cpu_test)
+    logger.info(context.start_time)
 
     logger.info("----- end of the displaying the info -----")
 
@@ -265,7 +268,9 @@ def after_scenario(context, scenario):
                     'number_of_clients': context.number_of_clients,
                     'time_taken': getattr(context, 'time_taken', 0),
                     'metrics': getattr(context, 'metrics', {}),
-                    'test_time': getattr(context, 'test_time', None)
+                    'test_time': getattr(context, 'test_time', None),
+                    'start_time': getattr(context, 'start_time'),
+                    'end_time': getattr(context, 'end_time')
                 }
                 
                 # Generate plots

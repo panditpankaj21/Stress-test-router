@@ -6,7 +6,7 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.chart import BarChart, Reference
 from openpyxl.utils import get_column_letter
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Any
 import os
 from collections import defaultdict
@@ -59,6 +59,39 @@ class ExcelStatisticsGenerator:
             sheet_name = sheet_name.replace(char, '_')
         return sheet_name
     
+    def _calculate_duration(self, start_time, end_time) -> str:
+        """
+        Calculate duration between start and end time and format as HH:MM:SS
+        
+        Args:
+            start_time: Start time (datetime object or string)
+            end_time: End time (datetime object or string)
+            
+        Returns:
+            Duration formatted as HH:MM:SS
+        """
+        try:
+            # Convert strings to datetime if needed
+            if isinstance(start_time, str):
+                start_time = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+            if isinstance(end_time, str):
+                end_time = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+            
+            # Calculate duration
+            duration = end_time - start_time
+            
+            # Convert to total seconds
+            total_seconds = int(duration.total_seconds())
+            
+            # Calculate hours, minutes, seconds
+            hours = total_seconds // 3600
+            minutes = (total_seconds % 3600) // 60
+            seconds = total_seconds % 60
+            
+            return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+        except:
+            return "00:00:00"
+    
     def _aggregate_router_data(self, all_tests: List[Dict]) -> Dict:
         """
         Aggregate test data by router
@@ -72,6 +105,7 @@ class ExcelStatisticsGenerator:
                 'total_tests': count,
                 'passed_tests': count,
                 'failed_tests': count,
+                'total_duration': total_seconds,
                 'features': {
                     'feature_name': [list of tests]
                 }
@@ -86,6 +120,7 @@ class ExcelStatisticsGenerator:
             'total_tests': 0,
             'passed_tests': 0,
             'failed_tests': 0,
+            'total_duration': 0,  # Total duration in seconds
             'features': defaultdict(list)
         })
         
@@ -111,11 +146,42 @@ class ExcelStatisticsGenerator:
             else:
                 router_data['failed_tests'] += 1
             
+            # Calculate test duration
+            start_time = test.get('start_time')
+            end_time = test.get('end_time')
+            if start_time and end_time:
+                try:
+                    if isinstance(start_time, str):
+                        start_time = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                    if isinstance(end_time, str):
+                        end_time = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+                    
+                    duration = (end_time - start_time).total_seconds()
+                    router_data['total_duration'] += duration
+                except:
+                    pass
+            
             # Group by feature
             feature_name = test.get('feature_name', 'Unknown Feature')
             router_data['features'][feature_name].append(test)
         
         return dict(aggregated)
+    
+    def _format_duration_from_seconds(self, total_seconds: float) -> str:
+        """
+        Format total seconds as HH:MM:SS
+        
+        Args:
+            total_seconds: Total seconds
+            
+        Returns:
+            Duration formatted as HH:MM:SS
+        """
+        total_seconds = int(total_seconds)
+        hours = total_seconds // 3600
+        minutes = (total_seconds % 3600) // 60
+        seconds = total_seconds % 60
+        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
     
     def _create_progress_bar_cells(self, ws, row: int, col: int, 
                                    passed: int, total: int, bar_width: int = 20):
@@ -188,7 +254,7 @@ class ExcelStatisticsGenerator:
         
         # Headers for router list
         row += 2
-        headers = ['Router Name', 'Tests (Passed/Total)', 'Success Rate']
+        headers = ['Router Name', 'Tests (Passed/Total)', 'Total Duration', 'Success Rate']
         for col_idx, header in enumerate(headers, start=1):
             cell = ws.cell(row=row, column=col_idx)
             cell.value = header
@@ -209,6 +275,7 @@ class ExcelStatisticsGenerator:
             router_model = router_data['router_model']
             total_tests = router_data['total_tests']
             passed_tests = router_data['passed_tests']
+            total_duration = router_data['total_duration']
             
             # Router name as clickable link
             sheet_name = self._get_router_sheet_name(router_name, router_model)
@@ -228,8 +295,15 @@ class ExcelStatisticsGenerator:
             cell.alignment = Alignment(horizontal='center', vertical='center')
             cell.font = self.normal_font
             
-            # Progress bar (starts at column 3, spans 20 cells)
-            self._create_progress_bar_cells(ws, row, 3, passed_tests, total_tests, bar_width=20)
+            # Total duration
+            cell = ws.cell(row=row, column=3)
+            cell.value = self._format_duration_from_seconds(total_duration)
+            cell.border = self.thin_border
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+            cell.font = self.normal_font
+            
+            # Progress bar (starts at column 4, spans 20 cells)
+            self._create_progress_bar_cells(ws, row, 4, passed_tests, total_tests, bar_width=20)
             
             row += 1
         
@@ -257,12 +331,13 @@ class ExcelStatisticsGenerator:
         # Adjust column widths
         ws.column_dimensions['A'].width = 35
         ws.column_dimensions['B'].width = 18
-        for i in range(3, 24):  # Progress bar columns
+        ws.column_dimensions['C'].width = 15  # Total Duration column
+        for i in range(4, 25):  # Progress bar columns (now starting at 4)
             ws.column_dimensions[get_column_letter(i)].width = 2
     
     def _create_router_detail_sheet(self, wb: Workbook, router_mac: str, router_data: Dict):
         """
-        STEP 3: Create detailed sheet for a specific router
+        Create detailed sheet for a specific router
         Shows all test results organized by feature with complete details
         """
         
@@ -277,7 +352,7 @@ class ExcelStatisticsGenerator:
         ws = wb.create_sheet(sheet_name)
         
         # Title
-        ws.merge_cells('A1:I1')
+        ws.merge_cells('A1:J1')
         ws['A1'] = f'🔧 {router_name}-{router_model} - Detailed Test History'
         ws['A1'].font = self.header_font
         ws['A1'].fill = PatternFill(start_color=self.colors['header'], 
@@ -288,6 +363,8 @@ class ExcelStatisticsGenerator:
         
         # Router details
         row = 3
+        total_duration_formatted = self._format_duration_from_seconds(router_data['total_duration'])
+        
         details = [
             ('Router Name:', router_name),
             ('Model:', router_model),
@@ -295,7 +372,8 @@ class ExcelStatisticsGenerator:
             ('Firmware:', router_data['router_firmware']),
             ('Total Tests:', router_data['total_tests']),
             ('Passed:', router_data['passed_tests']),
-            ('Failed:', router_data['failed_tests'])
+            ('Failed:', router_data['failed_tests']),
+            ('Total Duration:', total_duration_formatted)
         ]
         
         for label, value in details:
@@ -316,7 +394,7 @@ class ExcelStatisticsGenerator:
         
         for feature_name, tests in sorted(router_data['features'].items()):
             # Feature header
-            ws.merge_cells(f'A{row}:I{row}')
+            ws.merge_cells(f'A{row}:J{row}')
             ws[f'A{row}'] = f'📁 {feature_name}'
             ws[f'A{row}'].font = self.subheader_font
             ws[f'A{row}'].fill = PatternFill(start_color=self.colors['subheader'], 
@@ -326,11 +404,11 @@ class ExcelStatisticsGenerator:
             ws[f'A{row}'].border = self.thin_border
             row += 1
             
-            # Test table headers (removed Linux CPU columns)
+            # Test table headers
             headers = [
                 'Date', 'Time', 'Scenario', 'Clients', 'Status', 
                 'Router CPE\n(Creation %)', 'Router CPE\n(Test %)', 
-                'Time Taken (s)', 'Failure Reason'
+                'Time Taken (s)', 'Test Duration', 'Failure Reason'
             ]
             
             for col_idx, header in enumerate(headers, start=1):
@@ -338,8 +416,8 @@ class ExcelStatisticsGenerator:
                 cell.value = header
                 cell.font = Font(name='Calibri', size=9, bold=True, color='FFFFFF')
                 cell.fill = PatternFill(start_color=self.colors['header'], 
-                                    end_color=self.colors['header'], 
-                                    fill_type='solid')
+                                       end_color=self.colors['header'], 
+                                       fill_type='solid')
                 cell.border = self.thin_border
                 cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
             
@@ -348,8 +426,8 @@ class ExcelStatisticsGenerator:
             
             # Sort tests by date (newest first)
             sorted_tests = sorted(tests, 
-                                key=lambda x: x.get('test_time', ''), 
-                                reverse=True)
+                                 key=lambda x: x.get('test_time', ''), 
+                                 reverse=True)
             
             # Test data rows
             for test in sorted_tests:
@@ -374,7 +452,12 @@ class ExcelStatisticsGenerator:
                 status = test.get('status', 'unknown').lower()
                 failure_reason = test.get('failure_reason', '') if status != 'passed' else ''
                 
-                # Data (removed Linux CPU columns)
+                # Calculate test duration
+                start_time = test.get('start_time')
+                end_time = test.get('end_time')
+                test_duration = self._calculate_duration(start_time, end_time) if start_time and end_time else '00:00:00'
+                
+                # Data
                 data_row = [
                     test_date,
                     test_time_str,
@@ -384,6 +467,7 @@ class ExcelStatisticsGenerator:
                     round(test.get('router_avg_cpu_creation', 0), 2),
                     round(test.get('router_avg_cpu_test', 0), 2),
                     round(test.get('time_taken', 0), 2),
+                    test_duration,
                     failure_reason
                 ]
                 
@@ -398,17 +482,17 @@ class ExcelStatisticsGenerator:
                     if col_idx == 5:  # Status column
                         if status == 'passed':
                             cell.fill = PatternFill(start_color=self.colors['pass'], 
-                                                end_color=self.colors['pass'], 
-                                                fill_type='solid')
+                                                   end_color=self.colors['pass'], 
+                                                   fill_type='solid')
                             cell.font = Font(name='Calibri', size=9, bold=True, color='FFFFFF')
                         else:
                             cell.fill = PatternFill(start_color=self.colors['fail'], 
-                                                end_color=self.colors['fail'], 
-                                                fill_type='solid')
+                                                   end_color=self.colors['fail'], 
+                                                   fill_type='solid')
                             cell.font = Font(name='Calibri', size=9, bold=True, color='FFFFFF')
                     
                     # Failure reason - left align and wrap
-                    if col_idx == 9:  # Failure reason column (now column 9 instead of 11)
+                    if col_idx == 10:  # Failure reason column
                         cell.alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
                 
                 row += 1
@@ -416,7 +500,7 @@ class ExcelStatisticsGenerator:
             row += 2  # Space between features
         
         # Adjust column widths
-        ws.column_dimensions['A'].width = 14  # Date (wider for "17 Feb 2026" format)
+        ws.column_dimensions['A'].width = 14  # Date
         ws.column_dimensions['B'].width = 10  # Time
         ws.column_dimensions['C'].width = 20  # Scenario
         ws.column_dimensions['D'].width = 8   # Clients
@@ -424,7 +508,8 @@ class ExcelStatisticsGenerator:
         ws.column_dimensions['F'].width = 14  # CPE CPU (Creation)
         ws.column_dimensions['G'].width = 14  # CPE CPU (Test)
         ws.column_dimensions['H'].width = 14  # Time Taken
-        ws.column_dimensions['I'].width = 40  # Failure Reason
+        ws.column_dimensions['I'].width = 12  # Test Duration (HH:MM:SS)
+        ws.column_dimensions['J'].width = 40  # Failure Reason
     
     def update_statistics(self, all_tests: List[Dict]):
         """
