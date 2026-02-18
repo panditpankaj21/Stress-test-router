@@ -78,7 +78,8 @@ class TestDataHandler:
         query = {
             "router_mac": router_mac,
             "feature_name": feature_name,
-            "number_of_clients": number_of_clients
+            "number_of_clients": number_of_clients,
+            "status": "passed"
         }
         
         cursor = self.collection.find(query).sort("test_time", -1)
