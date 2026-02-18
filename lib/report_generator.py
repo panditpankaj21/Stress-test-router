@@ -32,36 +32,57 @@ class ReportGenerator:
         # Sort by test time
         sorted_data = sorted(test_data, key=lambda x: x['test_time'])
         
-        test_times = [d['test_time'] for d in sorted_data]
+        # Create readable test labels
+        test_labels = [f"Test #{idx}" for idx in range(1, len(sorted_data) + 1)]
+        x_positions = range(1, len(test_labels) + 1)
+        
         cpu_creation = [d.get('router_avg_cpu_creation', 0) for d in sorted_data]
         cpu_test = [d.get('router_avg_cpu_test', 0) for d in sorted_data]
         
         # Plot 1: Router CPU during creation
-        ax1.plot(test_times, cpu_creation, marker='o', linewidth=2, markersize=6, 
-                label='CPU During Creation', color='#2E86AB')
-        ax1.axhline(y=statistics.mean(cpu_creation) if cpu_creation else 0, 
-                   color='r', linestyle='--', label='Average', alpha=0.7)
-        ax1.set_xlabel('Test Time', fontsize=11)
-        ax1.set_ylabel('CPU Utilization (%)', fontsize=11)
-        ax1.set_title(f'Router CPU During Client Creation\nFeature: {current_test.get("feature_name", "Unknown")} - '
-                     f'{current_test.get("number_of_clients", 0)} Client', fontsize=13, fontweight='bold')
-        ax1.legend()
-        ax1.grid(True, alpha=0.3)
-        ax1.xaxis.set_major_formatter(mdates.DateFormatter('%m/%d %H:%M'))
-        plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45, ha='right')
+        ax1.plot(x_positions, cpu_creation, marker='o', linewidth=2, markersize=6, 
+                label='CPE During Creation', color='#2E86AB')
+        avg_creation = statistics.mean(cpu_creation) if cpu_creation else 0
+        ax1.axhline(y=avg_creation, 
+                color='r', linestyle='--', label=f'Average: {avg_creation:.2f}%', alpha=0.7)
+        ax1.set_xlabel('Test Number', fontsize=11)
+        ax1.set_ylabel('CPE Utilization (%)', fontsize=11)
+        ax1.set_title(f'CPE Utilization During Client Creation\n'
+                    f'Feature: {current_test.get("feature_name", "Unknown")} - '
+                    f'{current_test.get("number_of_clients", 0)} Clients', 
+                    fontsize=13, fontweight='bold')
+        ax1.legend(loc='upper right')
+        ax1.grid(True, alpha=0.3, axis='y')
+        ax1.set_xticks(x_positions)
+        ax1.set_xticklabels(test_labels, rotation=45, ha='right')
+        
+        # Add some padding to y-axis
+        if cpu_creation:
+            y_max = max(cpu_creation)
+            y_min = min(cpu_creation)
+            y_range = y_max - y_min if y_max != y_min else y_max
+            ax1.set_ylim(max(0, y_min - y_range * 0.1), y_max + y_range * 0.1)
         
         # Plot 2: Router CPU during test
-        ax2.plot(test_times, cpu_test, marker='s', linewidth=2, markersize=6, 
-                label='CPU During Test', color='#A23B72')
-        ax2.axhline(y=statistics.mean(cpu_test) if cpu_test else 0, 
-                   color='r', linestyle='--', label='Average', alpha=0.7)
-        ax2.set_xlabel('Test Time', fontsize=11)
-        ax2.set_ylabel('CPU Utilization (%)', fontsize=11)
-        ax2.set_title('Router CPU During Test Execution', fontsize=13, fontweight='bold')
-        ax2.legend()
-        ax2.grid(True, alpha=0.3)
-        ax2.xaxis.set_major_formatter(mdates.DateFormatter('%m/%d %H:%M'))
-        plt.setp(ax2.xaxis.get_majorticklabels(), rotation=45, ha='right')
+        ax2.plot(x_positions, cpu_test, marker='s', linewidth=2, markersize=6, 
+                label='CPE During Test', color='#A23B72')
+        avg_test = statistics.mean(cpu_test) if cpu_test else 0
+        ax2.axhline(y=avg_test, 
+                color='r', linestyle='--', label=f'Average: {avg_test:.2f}%', alpha=0.7)
+        ax2.set_xlabel('Test Number', fontsize=11)
+        ax2.set_ylabel('CPE Utilization (%)', fontsize=11)
+        ax2.set_title('CPE Utilization During Test Execution', fontsize=13, fontweight='bold')
+        ax2.legend(loc='upper right')
+        ax2.grid(True, alpha=0.3, axis='y')
+        ax2.set_xticks(x_positions)
+        ax2.set_xticklabels(test_labels, rotation=45, ha='right')
+        
+        # Add some padding to y-axis
+        if cpu_test:
+            y_max = max(cpu_test)
+            y_min = min(cpu_test)
+            y_range = y_max - y_min if y_max != y_min else y_max
+            ax2.set_ylim(max(0, y_min - y_range * 0.1), y_max + y_range * 0.1)
         
         plt.tight_layout()
         
@@ -136,24 +157,44 @@ class ReportGenerator:
         
         sorted_data = sorted(test_data, key=lambda x: x['test_time'])
         
-        test_times = [d['test_time'] for d in sorted_data]
-        time_taken = [d.get('time_taken', 0) for d in sorted_data]
+        # Create readable test labels instead of raw dates
+        test_labels = []
+        time_taken_seconds = []
         
-        ax.plot(test_times, time_taken, marker='D', linewidth=2, markersize=7, 
-               label='Time Taken', color='#06A77D')
-        ax.axhline(y=statistics.mean(time_taken) if time_taken else 0, 
-                  color='r', linestyle='--', label='Average', alpha=0.7)
+        for idx, d in enumerate(sorted_data, 1):
+            # Create label like "Test #1", "Test #2", etc.
+            test_labels.append(f"Test #{idx}")
+            # Convert time to seconds if it's in minutes
+            time_val = d.get('time_taken', 0)
+            time_taken_seconds.append(time_val)
         
-        ax.set_xlabel('Time Analysis', fontsize=11)
-        ax.set_ylabel('Time (minutes)', fontsize=11)
-        ax.set_title(f'Time Required to Creat Clietns\n'
+        # Create x-axis positions
+        x_positions = range(1, len(test_labels) + 1)
+        
+        ax.plot(x_positions, time_taken_seconds, marker='D', linewidth=2, markersize=7, 
+            label='Time Taken', color='#06A77D')
+        ax.axhline(y=statistics.mean(time_taken_seconds) if time_taken_seconds else 0, 
+                color='r', linestyle='--', label=f'Average: {statistics.mean(time_taken_seconds):.2f}s', alpha=0.7)
+        
+        ax.set_xlabel('Test Number', fontsize=11)
+        ax.set_ylabel('Time (seconds)', fontsize=11)
+        ax.set_title(f'Time Required to Create Clients\n'
                     f'Feature: {current_test.get("feature_name", "Unknown")} - '
-                    f'{current_test.get("number_of_clients", 0)} Client', 
+                    f'{current_test.get("number_of_clients", 0)} Clients', 
                     fontsize=13, fontweight='bold')
-        ax.legend()
-        ax.grid(True, alpha=0.3)
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%m/%d %H:%M'))
-        plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
+        ax.legend(loc='upper right')
+        ax.grid(True, alpha=0.3, axis='y')
+        
+        # Set x-axis to show test numbers
+        ax.set_xticks(x_positions)
+        ax.set_xticklabels(test_labels, rotation=45, ha='right')
+        
+        # Add some padding to y-axis
+        if time_taken_seconds:
+            y_max = max(time_taken_seconds)
+            y_min = min(time_taken_seconds)
+            y_range = y_max - y_min
+            ax.set_ylim(max(0, y_min - y_range * 0.1), y_max + y_range * 0.1)
         
         plt.tight_layout()
         

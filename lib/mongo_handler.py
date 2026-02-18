@@ -1,27 +1,46 @@
 """
 MongoDB Handler for Behave Test Results
 """
-from pymongo import MongoClient
+from pymongo import MongoClient, errors
 from datetime import datetime
 from typing import List, Dict, Any, Optional
+from utils.logger import logger
 
 
 class TestDataHandler:
     def __init__(self, connection_string: str, database_name: str = "test_results"):
         """Initialize MongoDB connection"""
-        self.client = MongoClient(connection_string)
-        self.db = self.client[database_name]
-        self.collection = self.db["test_executions"]
-        self._create_indexes()
+
+        self.client = None
+        try:
+            self.client = MongoClient(connection_string)
+            self.db = self.client[database_name]
+            self.collection = self.db["test_executions"]
+            self._create_indexes()
+            logger.info("MongoDB connection established successfully.")
+        except errors.ConnectionError as e:
+            logger.error(f"X MongoDB connection failed: {e}")
+            raise AssertionError(f"MongoDB connection failed: {e}")
+        except errors.ConfigurationError as e:
+            logger.error(f"MongoDB configuration error: {e}")
+            raise AssertionError(f"MongoDB configuration error: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error while connecting to MongoDB: {e}")
+            raise AssertionError(f"Unexpected error while connecting to MongoDB: {e}")
+
     
     def _create_indexes(self):
         """Create indexes for faster querying"""
-        self.collection.create_index([
-            ("router_mac", 1),
-            ("feature_name", 1),
-            ("number_of_clients", 1)
-        ])
-        self.collection.create_index("test_time")
+        try:
+            self.collection.create_index([
+                ("router_mac", 1),
+                ("feature_name", 1),
+                ("number_of_clients", 1)
+            ])
+            self.collection.create_index("test_time")
+        except Exception as e:
+            logger.error(f"Failed to create indexes: {e}")
+            raise AssertionError(f"Failed to create indexes: {e}")
     
     def store_test_result(self, context) -> str:
         """Store test result from behave context"""
@@ -41,6 +60,7 @@ class TestDataHandler:
             "time_taken": getattr(context, 'time_taken', None),
             "metrics": getattr(context, 'metrics', {}),
             "test_time": getattr(context, 'test_time', datetime.utcnow()),
+            "failure_reason": getattr(context, 'failure_reason', ''),  # NEW
             "inserted_at": datetime.utcnow()
         }
         
