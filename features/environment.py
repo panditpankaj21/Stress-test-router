@@ -266,9 +266,9 @@ def after_scenario(context, scenario):
     # Store the test result in MongoDB
     try:
         doc_id = context.db_handler.store_test_result(context)
-        logger.info(f"\n✓ Test result stored in MongoDB with ID: {doc_id}")
+        logger.info(f"Test result stored in MongoDB with ID: {doc_id}")
     except Exception as e:
-        logger.info(f"\n✗ Failed to store test result: {e}")
+        logger.info(f"✗ Failed to store test result: {e}")
         return
     
 
@@ -498,10 +498,8 @@ def after_all(context):
     # logger.info("="*70 + "\n")
 
 
-    logger.info("\n Updating Excel statistics...")
+    logger.info("Updating Excel statistics...")
     all_tests = context.db_handler.get_all_test_results() 
     stats_path = context.stats_generator.update_statistics(all_tests)  # THIS LINE calls the method
-    logger.info(f"✓ Excel statistics updated: {os.path.abspath(stats_path)}")
-
-    logger.info("\n" + "="*70)
+    logger.info(f"Excel statistics updated: {os.path.abspath(stats_path)}")
     logger.info("\n" + "="*70 + "\nThank you for using the test framework!\n" + "="*70)

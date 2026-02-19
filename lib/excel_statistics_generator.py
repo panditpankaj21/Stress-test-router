@@ -388,17 +388,17 @@ class ExcelStatisticsGenerator:
         all_failed_tests.sort(key=lambda x: x.get('test_time', ''), reverse=True)
         
         for test in all_failed_tests:
-            # Parse test time
+            # Parse test time - US format
             test_time = test.get('test_time', '')
             if test_time:
                 if isinstance(test_time, str):
                     try:
                         dt = datetime.fromisoformat(test_time.replace('Z', '+00:00'))
-                        test_date = dt.strftime('%d %b %Y %H:%M')
+                        test_date = dt.strftime('%m/%d/%Y %H:%M')  # US format: MM/DD/YYYY HH:MM
                     except:
                         test_date = test_time[:16] if len(test_time) >= 16 else 'N/A'
                 else:
-                    test_date = test_time.strftime('%d %b %Y %H:%M')
+                    test_date = test_time.strftime('%m/%d/%Y %H:%M')  # US format
             else:
                 test_date = 'N/A'
             
@@ -606,19 +606,19 @@ class ExcelStatisticsGenerator:
             
             # Test data rows
             for test in sorted_tests:
-                # Parse test time
+                # Parse test time - US format
                 test_time = test.get('test_time', '')
                 if test_time:
                     if isinstance(test_time, str):
                         try:
                             dt = datetime.fromisoformat(test_time.replace('Z', '+00:00'))
-                            test_date = dt.strftime('%d %b %Y')
+                            test_date = dt.strftime('%m/%d/%Y')  # US format: MM/DD/YYYY
                             test_time_str = dt.strftime('%H:%M:%S')
                         except:
                             test_date = test_time[:10] if len(test_time) >= 10 else 'N/A'
                             test_time_str = 'N/A'
                     else:
-                        test_date = test_time.strftime('%d %b %Y')
+                        test_date = test_time.strftime('%m/%d/%Y')  # US format
                         test_time_str = test_time.strftime('%H:%M:%S')
                 else:
                     test_date = 'N/A'
