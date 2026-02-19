@@ -203,7 +203,6 @@ def after_scenario(context, scenario):
     #getting information about the secenario and feature
     context.scenario_name = scenario.name
     context.feature_name = scenario.feature.name
-    context.status = scenario.status.name
     context.linux_avg_cpu_creation = utils.config.linux_cpu_creation
     context.linux_avg_cpu_test = utils.config.linux_cpu_test
     context.time_taken = utils.config.time_taken
@@ -212,24 +211,57 @@ def after_scenario(context, scenario):
     context.test_time = datetime.now().isoformat()
     context.end_time = datetime.utcnow()
 
-    logger.info("----- displaying the information --------")
 
-    logger.info(context.router_mac)
-    logger.info(context.router_firmware)
-    logger.info(context.router_name)
-    logger.info(context.router_model)
-    logger.info(context.scenario_name)
-    logger.info(context.feature_name)
-    logger.info(context.status)
-    logger.info(context.number_of_clients)
-    logger.info(context.linux_avg_cpu_creation)
-    logger.info(context.linux_avg_cpu_test)
-    logger.info(context.time_taken)
-    logger.info(context.router_avg_cpu_creation)
-    logger.info(context.router_avg_cpu_test)
-    logger.info(context.start_time)
+    steps_data = []
+    failure_message = None
+    
+    for step in scenario.steps:
+        step_info = {
+            "name": step.name,
+            "status": step.status.name,
+            "keyword": step.keyword  # Given/When/Then
+        }
+        
+        if step.status.name == "failed":
+            step_info["failure_message"] = str(step.exception)
+            failure_message = str(step.exception)
+        elif step.status.name == "undefined":
+            step_info["failure_message"] = "Step definition not found"
+            failure_message = "Step definition not found"
+        elif step.status.name == "skipped":
+            step_info["failure_message"] = "Step skipped due to previous failure"
+        
+        steps_data.append(step_info)
+    
+    # Store in context
+    context.steps_data = steps_data
+    
+    # Capture failure reason if test failed
+    if scenario.status.name == 'failed':
+        context.status = 'failed'
+        context.failure_reason = failure_message if failure_message else 'Test failed - reason not captured'
+    else:
+        context.status = 'passed'
+        context.failure_reason = ''
 
-    logger.info("----- end of the displaying the info -----")
+    # logger.info("----- displaying the information --------")
+
+    # logger.info(context.router_mac)
+    # logger.info(context.router_firmware)
+    # logger.info(context.router_name)
+    # logger.info(context.router_model)
+    # logger.info(context.scenario_name)
+    # logger.info(context.feature_name)
+    # logger.info(context.status)
+    # logger.info(context.number_of_clients)
+    # logger.info(context.linux_avg_cpu_creation)
+    # logger.info(context.linux_avg_cpu_test)
+    # logger.info(context.time_taken)
+    # logger.info(context.router_avg_cpu_creation)
+    # logger.info(context.router_avg_cpu_test)
+    # logger.info(context.start_time)
+
+    # logger.info("----- end of the displaying the info -----")
 
     # Store the test result in MongoDB
     try:
@@ -270,7 +302,8 @@ def after_scenario(context, scenario):
                     'metrics': getattr(context, 'metrics', {}),
                     'test_time': getattr(context, 'test_time', None),
                     'start_time': getattr(context, 'start_time'),
-                    'end_time': getattr(context, 'end_time')
+                    'end_time': getattr(context, 'end_time'),
+                    "steps_data": getattr(context, 'steps_data', []),
                 }
                 
                 # Generate plots
@@ -310,45 +343,45 @@ def after_scenario(context, scenario):
 
 
 
-    end_time = datetime.now().isoformat()
-    steps_data = []
-    failure_message = None
+    # end_time = datetime.now().isoformat()
+    # steps_data = []
+    # failure_message = None
 
-    for step in scenario.steps:
-        step_info = {"name": step.name, "status": step.status.name}
-        if step.status.name == "failed":
-            step_info["failure_message"] = str(step.exception)
-            failure_message = str(step.exception)
-        elif step.status.name == "undefined":
-            step_info["failure_message"] = "Step definition not found"
-            failure_message = "Step definition not found"
-        elif step.status.name == "skipped":
-            step_info["failure_message"] = "Step skipped due to previous failure"
-        steps_data.append(step_info)
+    # for step in scenario.steps:
+    #     step_info = {"name": step.name, "status": step.status.name}
+    #     if step.status.name == "failed":
+    #         step_info["failure_message"] = str(step.exception)
+    #         failure_message = str(step.exception)
+    #     elif step.status.name == "undefined":
+    #         step_info["failure_message"] = "Step definition not found"
+    #         failure_message = "Step definition not found"
+    #     elif step.status.name == "skipped":
+    #         step_info["failure_message"] = "Step skipped due to previous failure"
+    #     steps_data.append(step_info)
 
-    scenario_result = {
-        "feature": scenario.feature.name,
-        "scenario": scenario.name,
-        "status": scenario.status.name,
-        "steps": steps_data,
-        "timestamps": {
-            "start": getattr(scenario, 'start_time', datetime.now().isoformat()),
-            "end": end_time,
-        },
-        "failure_message": failure_message,
-    }
+    # scenario_result = {
+    #     "feature": scenario.feature.name,
+    #     "scenario": scenario.name,
+    #     "status": scenario.status.name,
+    #     "steps": steps_data,
+    #     "timestamps": {
+    #         "start": getattr(scenario, 'start_time', datetime.now().isoformat()),
+    #         "end": end_time,
+    #     },
+    #     "failure_message": failure_message,
+    # }
 
-    json_file = "results/json/summary.json"
-    try:
-        with open(json_file, "r") as f:
-            data = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        data = []
+    # json_file = "results/json/summary.json"
+    # try:
+    #     with open(json_file, "r") as f:
+    #         data = json.load(f)
+    # except (FileNotFoundError, json.JSONDecodeError):
+    #     data = []
 
-    data.append(scenario_result)
+    # data.append(scenario_result)
 
-    with open(json_file, "w") as f:
-        json.dump(data, f, indent=2)
+    # with open(json_file, "w") as f:
+    #     json.dump(data, f, indent=2)
 
     if summary_logger:
         summary_logger.info(
@@ -465,7 +498,10 @@ def after_all(context):
     # logger.info("="*70 + "\n")
 
 
-    print("\n⏳ Updating Excel statistics...")
-    all_tests = context.db_handler.get_all_test_results()  # Get all tests from MongoDB
+    logger.info("\n Updating Excel statistics...")
+    all_tests = context.db_handler.get_all_test_results() 
     stats_path = context.stats_generator.update_statistics(all_tests)  # THIS LINE calls the method
-    print(f"✓ Excel statistics updated: {os.path.abspath(stats_path)}")
+    logger.info(f"✓ Excel statistics updated: {os.path.abspath(stats_path)}")
+
+    logger.info("\n" + "="*70)
+    logger.info("\n" + "="*70 + "\nThank you for using the test framework!\n" + "="*70)

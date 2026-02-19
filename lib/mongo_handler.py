@@ -63,6 +63,7 @@ class TestDataHandler:
             "failure_reason": getattr(context, 'failure_reason', ''),  # NEW
             "inserted_at": datetime.utcnow(),
             "start_time": getattr(context, 'start_time', None),
+            "steps_data": getattr(context, 'steps_data', []),
             "end_time": getattr(context, 'end_time', None)
         }
         

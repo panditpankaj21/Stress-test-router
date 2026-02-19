@@ -47,9 +47,9 @@ class ReportGenerator:
                 color='r', linestyle='--', label=f'Average: {avg_creation:.2f}%', alpha=0.7)
         ax1.set_xlabel('Test Number', fontsize=11)
         ax1.set_ylabel('CPE Utilization (%)', fontsize=11)
-        ax1.set_title(f'CPE Utilization During Client Creation\n'
-                    f'Feature: {current_test.get("feature_name", "Unknown")} - '
-                    f'{current_test.get("number_of_clients", 0)} Clients', 
+        ax1.set_title(f'Feature: {current_test.get("feature_name", "Unknown")} with '
+                    f'{current_test.get("number_of_clients", 0)} Client\n\n'
+                    'CPE Utilization During Client Creation\n', 
                     fontsize=13, fontweight='bold')
         ax1.legend(loc='upper right')
         ax1.grid(True, alpha=0.3, axis='y')
@@ -178,9 +178,9 @@ class ReportGenerator:
         
         ax.set_xlabel('Test Number', fontsize=11)
         ax.set_ylabel('Time (seconds)', fontsize=11)
-        ax.set_title(f'Time Required to Create Clients\n'
-                    f'Feature: {current_test.get("feature_name", "Unknown")} - '
-                    f'{current_test.get("number_of_clients", 0)} Clients', 
+        ax.set_title(f'Feature: {current_test.get("feature_name", "Unknown")} with '
+                    f'{current_test.get("number_of_clients", 0)} Client\n\n'
+                    f'Time Required to Create Clients\n', 
                     fontsize=13, fontweight='bold')
         ax.legend(loc='upper right')
         ax.grid(True, alpha=0.3, axis='y')
