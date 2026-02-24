@@ -16,6 +16,8 @@ from lib.mongo_handler import TestDataHandler
 from lib.report_generator import ReportGenerator
 from lib.excel_report_generator import ExcelReportGenerator
 from lib.excel_statistics_generator import ExcelStatisticsGenerator
+from lib.html_report_generator import HTMLReportGenerator
+import webbrowser
 
 summary_logger = None
 
@@ -111,9 +113,10 @@ def before_all(context):
     """Initialize MongoDB handler"""
     context.db_handler = TestDataHandler(MONGODB_CONNECTION_STRING)
     context.report_generator = ReportGenerator(output_dir="test_reports")
-    context.stats_generator = ExcelStatisticsGenerator(
-        excel_path="test_reports/test_statistics.xlsx"
-    )
+    # context.stats_generator = ExcelStatisticsGenerator(
+    #     excel_path="test_reports/test_statistics.xlsx"
+    # )
+    context.html_generator = HTMLReportGenerator(output_dir="test_reports")
 
     os.makedirs("results/json", exist_ok=True)
     with open("results/json/summary.json", "w") as f:
@@ -310,9 +313,9 @@ def after_scenario(context, scenario):
                 router_cpu_img = context.report_generator.generate_router_cpu_plot(
                     historical_data, current_test
                 )
-                # linux_cpu_img = context.report_generator.generate_linux_cpu_plot(
-                #     historical_data, current_test
-                # )
+                # # linux_cpu_img = context.report_generator.generate_linux_cpu_plot(
+                # #     historical_data, current_test
+                # # )
                 time_taken_img = context.report_generator.generate_time_taken_plot(
                     historical_data, current_test
                 )
@@ -497,9 +500,25 @@ def after_all(context):
     # logger.info("👋 Thank you for using the test framework!")
     # logger.info("="*70 + "\n")
 
+    
+    # Generate HTML report
+    try:
+        logger.info("\n⏳ Generating HTML report...")
+        all_tests = context.db_handler.get_all_test_results()
+        html_path = context.html_generator.generate_html_report(all_tests)
 
-    logger.info("Updating Excel statistics...")
-    all_tests = context.db_handler.get_all_test_results() 
-    stats_path = context.stats_generator.update_statistics(all_tests)  # THIS LINE calls the method
-    logger.info(f"Excel statistics updated: {os.path.abspath(stats_path)}")
+        logger.info(f"✓ HTML report generated: {os.path.abspath(html_path)}")
+        print(f"✓ HTML report generated: {os.path.abspath(html_path)}")
+        print(f"  Open manually: file://{os.path.abspath(html_path)}")
+        
+        # Open in browser
+        webbrowser.open('file://' + os.path.abspath(html_path))
+        logger.info(f"✓ Report opened in browser")
+    except Exception as e:
+        logger.info(f"\n✗ Failed to generate HTML report: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+
     logger.info("\n" + "="*70 + "\nThank you for using the test framework!\n" + "="*70)
