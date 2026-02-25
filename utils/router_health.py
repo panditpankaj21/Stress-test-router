@@ -2,16 +2,34 @@ import asyncio
 import utils.config
 import re
 import utils.config
+from utils.logger import logger 
 
 def parse_cpu_usage(cpu_line: str) -> float:
     """
     Extracts idle percentage from router CPU line and returns usage = 100 - idle.
+    Supports both old top format and new mpstat format.
     """
-    match = re.search(r'(\d+)% idle', cpu_line)
+    # Try mpstat format first (more reliable)
+    # Looking for: "[ROUTER ] CPU: 2% usr 2% sys 0% irq 0% sirq 94% idle"
+    match = re.search(r'(\d+)%\s+idle', cpu_line)
     if match:
         idle = float(match.group(1))
         usage = 100 - idle
         return usage
+    
+    # Fallback: try to extract from raw mpstat output
+    # Format: "all  2.66  0.00  2.34  0.00  0.17  0.67  0.00  0.00  94.15"
+    parts = cpu_line.split()
+    if 'all' in parts:
+        try:
+            # Last column is idle %
+            idle = float(parts[-1])
+            usage = 100 - idle
+            return usage
+        except (ValueError, IndexError):
+            pass
+    
+    logger.warning(f"Could not parse CPU usage from: {cpu_line}")
     return 0
 
 async def get_router_health(stop_event, type="test"):

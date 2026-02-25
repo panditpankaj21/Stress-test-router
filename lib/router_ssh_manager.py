@@ -1,7 +1,10 @@
+import asyncio
+from datetime import datetime
 import re
 import paramiko
 import time
 from utils.logger import logger  # Assuming this logger is configured properly
+import os
 
 class RouterSSHManager:
     def __init__(self, host, username, password, timeout=10):
@@ -52,18 +55,55 @@ class RouterSSHManager:
             return ""
 
     def get_health(self):
-        raw = self.run_in_shell("top -bn1 | grep 'CPU:'")
+        """
+        Get router CPU usage using mpstat
+        
+        Returns:
+            Formatted string with CPU metrics
+        """
+        # Run mpstat once with 1 second interval
+        raw = self.run_in_shell("mpstat 1 1")
         lines = raw.splitlines()
-
-        cpu_line = "?"
+        
+        # Find the line with "all" CPU stats
+        cpu_line = None
         for line in lines:
-            if line.startswith("CPU:"):
+            if 'all' in line and not line.startswith('Linux'):
                 cpu_line = line.strip()
                 break
-
-        formatted = f"[ROUTER ] {cpu_line}" + "\n"
-        logger.info(formatted)
-        return formatted
+        
+        if not cpu_line:
+            logger.warning("Could not parse mpstat output")
+            return "[ROUTER ] CPU: N/A\n"
+        
+        # Parse mpstat output
+        # Format: 07:02:21  all  %usr  %nice  %sys  %iowait  %irq  %soft  %steal  %guest  %idle
+        # Example: 07:02:21  all  2.66  0.00   2.34  0.00     0.17  0.67   0.00    0.00    94.15
+        
+        parts = cpu_line.split()
+        
+        try:
+            # mpstat columns (after timestamp and "all"):
+            # 0: timestamp, 1: "all", 2: %usr, 3: %nice, 4: %sys, 5: %iowait, 
+            # 6: %irq, 7: %soft, 8: %steal, 9: %guest, 10: %idle
+            
+            usr = float(parts[2])
+            sys = float(parts[4])
+            irq = float(parts[6])
+            soft = float(parts[7])
+            idle = float(parts[10])
+            
+            # Format similar to top output for consistency
+            formatted = (f"[ROUTER ] CPU: {usr:4.0f}% usr {sys:4.0f}% sys "
+                        f"{irq:4.0f}% irq {soft:4.0f}% sirq {idle:4.0f}% idle\n")
+            
+            logger.info(formatted)
+            return formatted
+            
+        except (IndexError, ValueError) as e:
+            logger.error(f"Error parsing mpstat output: {e}")
+            logger.error(f"Raw line: {cpu_line}")
+            return "[ROUTER ] CPU: Parse Error\n"
 
 
     @staticmethod

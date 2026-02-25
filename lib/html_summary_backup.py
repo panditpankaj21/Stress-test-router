@@ -305,9 +305,15 @@ class HTMLReportGenerator:
             color: #2c3e50;
         }
         
+        .recent-test-section {
+            margin: 70px 0;
+            background: #fff;
+        }
+        
         .recent-test-section h2 {
             color: #2c3e50;
             margin-top: 0;
+            border-bottom: 2px solid #3498db;
         }
         
         .test-status-badge {
@@ -481,7 +487,8 @@ class HTMLReportGenerator:
         status_icon = '✅' if status == 'passed' else '❌'
         
         html = f"""
-        <div class="recent-test-section" style="padding: 30px">
+        <div class="recent-test-section">
+            <h2>Most Recent Test Execution</h2>
             
             <div style="margin: 15px 0;">
                 <span class="test-status-badge {status_class}">
@@ -679,6 +686,11 @@ class HTMLReportGenerator:
     def _generate_summary_page(self, aggregated_data: Dict, timestamp: str, all_tests: List[Dict]) -> str:
         """Generate summary/index page"""
         
+        total_tests = sum(d['total_tests'] for d in aggregated_data.values())
+        total_passed = sum(d['passed_tests'] for d in aggregated_data.values())
+        total_failed = sum(d['failed_tests'] for d in aggregated_data.values())
+        total_routers = len(aggregated_data)
+        
         html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -690,9 +702,359 @@ class HTMLReportGenerator:
 <body>
     <div class="container">
         {self._get_header_html()}
-        {self._generate_recent_test_section(all_tests)}
+        
+        <div class="nav">
+            <a href="index.html">Summary</a>
+            <a href="failures.html">Failure Analysis</a>
+        </div>
+        
+        <div class="content-wrapper">
+            <h2>Overview</h2>
+            
+            <div class="info-grid">
+                <div class="info-card">
+                    <label>Total Routers</label>
+                    <div class="value">{total_routers}</div>
+                </div>
+                <div class="info-card">
+                    <label>Total Tests</label>
+                    <div class="value">{total_tests}</div>
+                </div>
+                <div class="info-card">
+                    <label>Passed Tests</label>
+                    <div class="value pass">{total_passed}</div>
+                </div>
+                <div class="info-card">
+                    <label>Failed Tests</label>
+                    <div class="value fail">{total_failed}</div>
+                </div>
+                <div class="info-card">
+                    <label>Pass Rate</label>
+                    <div class="value">{(total_passed/total_tests*100 if total_tests > 0 else 0):.1f}%</div>
+                </div>
+            </div>
+            
+            <h2>Router Summary</h2>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Router Name</th>
+                        <th>Model</th>
+                        <th>MAC Address</th>
+                        <th>Total Tests</th>
+                        <th>Passed</th>
+                        <th>Failed</th>
+                        <th>Pass Rate</th>
+                        <th>Total Duration</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+"""
+        
+        for router_mac, router_data in sorted(aggregated_data.items(), 
+                                             key=lambda x: x[1]['router_name']):
+            router_name = router_data['router_name']
+            router_model = router_data['router_model']
+            total = router_data['total_tests']
+            passed = router_data['passed_tests']
+            failed = router_data['failed_tests']
+            pass_rate = (passed / total * 100) if total > 0 else 0
+            
+            # Create safe filename
+            filename = f"{router_name}_{router_model}".replace(' ', '_').replace('/', '_')
+            
+            html += f"""
+                <tr>
+                    <td><strong>{router_name}</strong></td>
+                    <td>{router_model}</td>
+                    <td style="font-family: monospace;">{router_data['router_mac']}</td>
+                    <td>{total}</td>
+                    <td class="pass">{passed}</td>
+                    <td class="fail">{failed}</td>
+                    <td>{pass_rate:.1f}%</td>
+                    <td>{self._format_duration(router_data['total_duration'])}</td>
+                    <td><a href="{filename}.html">View Details →</a></td>
+                </tr>
+"""
+        
+        html += """
+                </tbody>
+            </table>
+"""
+        
+        # Add Recent Test Section
+        html += self._generate_recent_test_section(all_tests)
+        
+        html += """
+        </div>
+        
+        """ + self._get_footer_html() + """
     </div>
-        {self._get_footer_html()}
+</body>
+</html>
+"""
+        
+        return html
+    
+    def _generate_router_page(self, router_mac: str, router_data: Dict) -> str:
+        """Generate individual router detail page"""
+        
+        router_name = router_data['router_name']
+        router_model = router_data['router_model']
+        
+        html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{router_name} - {router_model}</title>
+    <style>{self._get_css()}</style>
+</head>
+<body>
+    <div class="container">
+        {self._get_header_html()}
+        
+        <div class="nav">
+            <a href="index.html">← Back to Summary</a>
+            <a href="failures.html">Failure Analysis</a>
+        </div>
+        
+        <div class="content-wrapper">
+            <h2>Router Information - {router_name} ({router_model})</h2>
+            
+            <div class="info-grid">
+                <div class="info-card">
+                    <label>Router Name</label>
+                    <div class="value">{router_name}</div>
+                </div>
+                <div class="info-card">
+                    <label>Model</label>
+                    <div class="value">{router_model}</div>
+                </div>
+                <div class="info-card">
+                    <label>MAC Address</label>
+                    <div class="value" style="font-family: monospace;">{router_data['router_mac']}</div>
+                </div>
+                <div class="info-card">
+                    <label>Firmware</label>
+                    <div class="value">{router_data['router_firmware']}</div>
+                </div>
+                <div class="info-card">
+                    <label>Total Tests</label>
+                    <div class="value">{router_data['total_tests']}</div>
+                </div>
+                <div class="info-card">
+                    <label>Passed</label>
+                    <div class="value pass">{router_data['passed_tests']}</div>
+                </div>
+                <div class="info-card">
+                    <label>Failed</label>
+                    <div class="value fail">{router_data['failed_tests']}</div>
+                </div>
+                <div class="info-card">
+                    <label>Total Duration</label>
+                    <div class="value">{self._format_duration(router_data['total_duration'])}</div>
+                </div>
+            </div>
+            
+            <h2>Test History</h2>
+"""
+        
+        # Organize tests by feature
+        for feature_name, tests in sorted(router_data['features'].items()):
+            html += f"""
+            <h3>Feature: {feature_name}</h3>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Scenario</th>
+                        <th>Clients</th>
+                        <th>Status</th>
+                        <th>CPE CPU (Create %)</th>
+                        <th>CPE CPU (Test %)</th>
+                        <th>Duration</th>
+                        <th>Steps</th>
+                    </tr>
+                </thead>
+                <tbody>
+"""
+            
+            # Sort by date (newest first)
+            sorted_tests = sorted(tests, key=lambda x: x.get('test_time', ''), reverse=True)
+            
+            for test in sorted_tests:
+                status = test.get('status', 'unknown').lower()
+                status_class = 'pass' if status == 'passed' else 'fail'
+                
+                # Calculate duration
+                start_time = test.get('start_time')
+                end_time = test.get('end_time')
+                duration = '00:00:00'
+                if start_time and end_time:
+                    try:
+                        if isinstance(start_time, str):
+                            start_time = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                        if isinstance(end_time, str):
+                            end_time = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+                        duration = self._format_duration((end_time - start_time).total_seconds())
+                    except:
+                        pass
+                
+                # Get values or N/A
+                clients = test.get('number_of_clients')
+                clients_display = str(clients) if clients is not None else 'N/A'
+                
+                cpu_create = test.get('router_avg_cpu_creation')
+                cpu_create_display = f"{cpu_create:.2f}" if cpu_create is not None else 'N/A'
+                
+                cpu_test = test.get('router_avg_cpu_test')
+                cpu_test_display = f"{cpu_test:.2f}" if cpu_test is not None else 'N/A'
+                
+                # Get step summary
+                steps_data = test.get('steps_data', [])
+                if steps_data:
+                    passed_steps = sum(1 for s in steps_data if s.get('status') == 'passed')
+                    total_steps = len(steps_data)
+                    step_summary = f"{passed_steps}/{total_steps}"
+                else:
+                    step_summary = "N/A"
+                
+                html += f"""
+                    <tr>
+                        <td>{self._format_date(test.get('test_time'))}</td>
+                        <td>{test.get('scenario_name', 'N/A')}</td>
+                        <td>{clients_display}</td>
+                        <td class="{status_class}">{status.upper()}</td>
+                        <td>{cpu_create_display}</td>
+                        <td>{cpu_test_display}</td>
+                        <td>{duration}</td>
+                        <td>{step_summary}</td>
+                    </tr>
+"""
+            
+            html += """
+                </tbody>
+            </table>
+"""
+        
+        html += """
+        </div>
+        
+        """ + self._get_footer_html() + """
+    </div>
+</body>
+</html>
+"""
+        
+        return html
+    
+    def _generate_failures_page(self, aggregated_data: Dict) -> str:
+        """Generate failure analysis page"""
+        
+        html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Failure Analysis</title>
+    <style>{self._get_css()}</style>
+</head>
+<body>
+    <div class="container">
+        {self._get_header_html()}
+        
+        <div class="nav">
+            <a href="index.html">← Back to Summary</a>
+        </div>
+        
+        <div class="content-wrapper">
+            <h2>Failure Analysis</h2>
+"""
+        
+        # Collect all failures
+        all_failures = []
+        for router_mac, router_data in aggregated_data.items():
+            for test in router_data['failed_tests_details']:
+                test['_router_name'] = router_data['router_name']
+                test['_router_model'] = router_data['router_model']
+                all_failures.append(test)
+        
+        if not all_failures:
+            html += """
+            <p style="text-align: center; padding: 60px; color: #7f8c8d; font-size: 16px;">
+                ✓ No failed tests found. All tests passed successfully!
+            </p>
+"""
+        else:
+            # Sort by date (newest first)
+            all_failures.sort(key=lambda x: x.get('test_time', ''), reverse=True)
+            
+            html += f"""
+            <p style="margin-bottom: 20px; color: #7f8c8d;">
+                Total Failed Tests: <strong style="color: #e74c3c; font-size: 18px;">{len(all_failures)}</strong>
+            </p>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Router</th>
+                        <th>Feature</th>
+                        <th>Scenario</th>
+                        <th>Date</th>
+                        <th>Failed Step</th>
+                        <th>Status</th>
+                        <th>Error Message</th>
+                    </tr>
+                </thead>
+                <tbody>
+"""
+            
+            for test in all_failures:
+                steps_data = test.get('steps_data', [])
+                failed_step = None
+                error_message = test.get('failure_reason', 'Unknown error')
+                step_status = 'FAILED'
+                
+                # Find failed step
+                for step in steps_data:
+                    if step.get('status') in ['failed', 'undefined']:
+                        failed_step = f"{step.get('keyword', '')} {step.get('name', '')}"
+                        error_message = step.get('failure_message', error_message)
+                        step_status = step.get('status', 'FAILED').upper()
+                        break
+                
+                if not failed_step:
+                    failed_step = test.get('scenario_name', 'Unknown')
+                
+                # Highlight UNDEFINED steps differently
+                row_style = ' style="background: #fff3cd;"' if step_status == 'UNDEFINED' else ''
+                
+                html += f"""
+                    <tr{row_style}>
+                        <td><strong>{test['_router_name']}-{test['_router_model']}</strong></td>
+                        <td>{test.get('feature_name', 'N/A')}</td>
+                        <td>{test.get('scenario_name', 'N/A')}</td>
+                        <td>{self._format_date(test.get('test_time'))}</td>
+                        <td style="font-family: monospace; font-size: 13px;">{failed_step}</td>
+                        <td class="fail">{step_status}</td>
+                        <td style="font-family: monospace; font-size: 12px; max-width: 400px;">{error_message}</td>
+                    </tr>
+"""
+            
+            html += """
+                </tbody>
+            </table>
+"""
+        
+        html += """
+        </div>
+        
+        """ + self._get_footer_html() + """
+    </div>
 </body>
 </html>
 """
@@ -721,8 +1083,45 @@ class HTMLReportGenerator:
         with open(os.path.join(self.report_dir, 'index.html'), 'w', encoding='utf-8') as f:
             f.write(summary_html)
         
+        # Generate individual router pages
+        for router_mac, router_data in aggregated_data.items():
+            router_name = router_data['router_name']
+            router_model = router_data['router_model']
+            filename = f"{router_name}_{router_model}".replace(' ', '_').replace('/', '_')
+            
+            router_html = self._generate_router_page(router_mac, router_data)
+            with open(os.path.join(self.report_dir, f'{filename}.html'), 'w', encoding='utf-8') as f:
+                f.write(router_html)
+        
+        # Generate failures page
+        failures_html = self._generate_failures_page(aggregated_data)
+        with open(os.path.join(self.report_dir, 'failures.html'), 'w', encoding='utf-8') as f:
+            f.write(failures_html)
+        
+        # Set permissions for all files
+        self._set_permissions()
+        
         # Return path to index page
         return os.path.join(self.report_dir, 'index.html')
+    
+    def _set_permissions(self):
+        """Set world-readable permissions for all files in report directory"""
+        try:
+            # Directory: world executable/readable
+            os.chmod(self.report_dir, 0o755)
+            
+            # Files: world readable
+            for filename in os.listdir(self.report_dir):
+                filepath = os.path.join(self.report_dir, filename)
+                if os.path.isfile(filepath):
+                    os.chmod(filepath, 0o644)  # rw-r--r--
+                    
+            # Also make test_reports parent directory accessible
+            parent_dir = os.path.dirname(self.report_dir)
+            os.chmod(parent_dir, 0o755)
+                    
+        except Exception as e:
+            print(f"Warning: Could not set permissions: {e}")
 
     
     def _generate_empty_report(self) -> str:
