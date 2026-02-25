@@ -15,6 +15,29 @@ class HTMLReportGenerator:
         self.output_dir = output_dir
         os.makedirs("test_reports", exist_ok=True)
         self.report_dir = None
+
+    def _copy_logos_to_report(self):
+        """Copy logo files to report directory for self-contained reports"""
+        try:
+            logo_dir = os.path.join(os.path.dirname(os.path.dirname(self.report_dir)), 'logo')
+            
+            if not os.path.exists(logo_dir):
+                print(f"Warning: Logo directory not found at {logo_dir}")
+                return
+            
+            # Copy each logo file
+            for logo_file in ['cognizant_logo.png', 'charter_logo.png']:
+                src_path = os.path.join(logo_dir, logo_file)
+                if os.path.exists(src_path):
+                    dst_path = os.path.join(self.report_dir, logo_file)
+                    shutil.copy2(src_path, dst_path)
+                    os.chmod(dst_path, 0o644)  # Make readable
+                    print(f"✓ Copied logo: {logo_file}")
+                else:
+                    print(f"Warning: Logo not found: {src_path}")
+                    
+        except Exception as e:
+            print(f"Warning: Could not copy logos: {e}")
     
     def _aggregate_router_data(self, all_tests: List[Dict]) -> Dict:
         """Aggregate test data by router"""
@@ -103,8 +126,8 @@ class HTMLReportGenerator:
                 <div class="subtitle">Router Performance Analysis</div>
             </div>
             <div>
-                <img src="../../logo/cognizant_logo.png" alt="Cognizant Logo" style="height:25px; margin-right:20px;">
-                <img src="../../logo/charter_logo.png" alt="Charter Logo" style="height:25px;">
+                <img src="cognizant_logo.png" alt="Cognizant Logo" style="height:25px; margin-right:20px;">
+                <img src="charter_logo.png" alt="Charter Logo" style="height:25px;">
             </div>
         </div>
         """
@@ -1049,6 +1072,9 @@ class HTMLReportGenerator:
         self.report_dir = os.path.join("test_reports", f"report_{timestamp}")
         os.makedirs(self.report_dir, exist_ok=True)
         
+        # Copy logos to report directory
+        self._copy_logos_to_report()
+        
         # Aggregate data
         aggregated_data = self._aggregate_router_data(all_tests)
         
@@ -1079,18 +1105,24 @@ class HTMLReportGenerator:
         return os.path.join(self.report_dir, 'index.html')
     
     def _set_permissions(self):
-        """Set read permissions for all files in report directory"""
+        """Set world-readable permissions for all files in report directory"""
         try:
-            # Set directory permissions
+            # Directory: world executable/readable
             os.chmod(self.report_dir, 0o755)
             
-            # Set file permissions for all files
+            # Files: world readable
             for filename in os.listdir(self.report_dir):
                 filepath = os.path.join(self.report_dir, filename)
                 if os.path.isfile(filepath):
-                    os.chmod(filepath, 0o644)
+                    os.chmod(filepath, 0o644)  # rw-r--r--
+                    
+            # Also make test_reports parent directory accessible
+            parent_dir = os.path.dirname(self.report_dir)
+            os.chmod(parent_dir, 0o755)
+                    
         except Exception as e:
             print(f"Warning: Could not set permissions: {e}")
+
     
     def _generate_empty_report(self) -> str:
         """Generate empty state report"""
@@ -1098,32 +1130,35 @@ class HTMLReportGenerator:
         self.report_dir = os.path.join("test_reports", f"report_{timestamp}")
         os.makedirs(self.report_dir, exist_ok=True)
         
+        # Copy logos
+        self._copy_logos_to_report()
+        
         html = f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Test Report - No Data</title>
-    <style>{self._get_css()}</style>
-</head>
-<body>
-    <div class="container">
-        {self._get_header_html()}
-        <div class="content-wrapper">
-            <p style="text-align: center; padding: 60px; color: #7f8c8d; font-size: 16px;">
-                No test data available. Run some tests to generate a report.
-            </p>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Test Report - No Data</title>
+        <style>{self._get_css()}</style>
+    </head>
+    <body>
+        <div class="container">
+            {self._get_header_html()}
+            <div class="content-wrapper">
+                <p style="text-align: center; padding: 60px; color: #7f8c8d; font-size: 16px;">
+                    No test data available. Run some tests to generate a report.
+                </p>
+            </div>
+            {self._get_footer_html()}
         </div>
-        {self._get_footer_html()}
-    </div>
-</body>
-</html>
-"""
+    </body>
+    </html>
+    """
         
         filepath = os.path.join(self.report_dir, 'index.html')
         with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(filepath)
+            f.write(html)
         
         self._set_permissions()
-        
         return filepath
+

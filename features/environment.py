@@ -102,10 +102,27 @@ def cleanup():
     asyncio.run(async_cleanup())
 
 
+async def async_cleanup_report_files():
+    try:
+        await run_cmd("sudo rm -rf test_reports/*")
+        logger.info("Report files cleaned up successfully.")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to clean up report files: {e}")
+
+def cleanup_report_files():
+    asyncio.run(async_cleanup_report_files())
+
+
 def before_all(context):
     global summary_logger
 
+    logger.info("----- CLEANING UP BEFORE STARTING TEST -----")
+    cleanup()
+    logger.info("----- CLEANUP DONE SUCCESSFULLY -----")
+
     context.ROUTER_IPV6 = get_router_global_ipv6()
+
+    cleanup_report_files()
 
     summary_logger = setup_summary_logger()
     summary_logger.info("Test Run Started:")
@@ -155,9 +172,6 @@ def before_all(context):
     if not context.ssid or not context.password:
         raise ValueError("WIFI_SSID and WIFI_PASSWORD must be set in .env")
 
-    logger.info("----- CLEANING UP BEFORE STARTING TEST -----")
-    cleanup()
-    logger.info("----- CLEANUP DONE SUCCESSFULLY -----")
 
     logger.info("----- INITIALIZING ROUTER SSH MANAGER -----")
     utils.config.router_ssh = create_router_ssh()
@@ -506,10 +520,13 @@ def after_all(context):
         logger.info("\n⏳ Generating HTML report...")
         all_tests = context.db_handler.get_all_test_results()
         html_path = context.html_generator.generate_html_report(all_tests)
+        
+        give_permission_cmd()
 
         logger.info(f"✓ HTML report generated: {os.path.abspath(html_path)}")
         print(f"✓ HTML report generated: {os.path.abspath(html_path)}")
         print(f"  Open manually: file://{os.path.abspath(html_path)}")
+
         
         # Open in browser
         webbrowser.open('file://' + os.path.abspath(html_path))
@@ -522,3 +539,13 @@ def after_all(context):
 
 
     logger.info("\n" + "="*70 + "\nThank you for using the test framework!\n" + "="*70)
+
+def give_permission_cmd():
+    asyncio.run(async_give_permission_cmd())
+
+async def async_give_permission_cmd():
+    try:
+        await run_cmd("sudo chown -R blueplanet:blueplanet test_reports")
+        logger.info("Permissions updated successfully for test_reports directory.")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to update permissions for test_reports directory: {e}")

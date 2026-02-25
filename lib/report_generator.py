@@ -58,7 +58,7 @@ class ReportGenerator:
         
         # Add some padding to y-axis
         if cpu_creation:
-            y_max = max(cpu_creation)
+            y_max = max(cpu_creation) * 2
             y_min = min(cpu_creation)
             y_range = y_max - y_min if y_max != y_min else y_max
             ax1.set_ylim(max(0, y_min - y_range * 0.1), y_max + y_range * 0.1)
@@ -79,7 +79,7 @@ class ReportGenerator:
         
         # Add some padding to y-axis
         if cpu_test:
-            y_max = max(cpu_test)
+            y_max = max(cpu_test) * 2
             y_min = min(cpu_test)
             y_range = y_max - y_min if y_max != y_min else y_max
             ax2.set_ylim(max(0, y_min - y_range * 0.1), y_max + y_range * 0.1)
@@ -191,7 +191,7 @@ class ReportGenerator:
         
         # Add some padding to y-axis
         if time_taken_seconds:
-            y_max = max(time_taken_seconds)
+            y_max = max(time_taken_seconds) * 2
             y_min = min(time_taken_seconds)
             y_range = y_max - y_min
             ax.set_ylim(max(0, y_min - y_range * 0.1), y_max + y_range * 0.1)
