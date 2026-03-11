@@ -5,6 +5,9 @@ import shlex
 from utils.logger import logger
 from utils.command_runner import run_cmd
 from prettytable import PrettyTable
+from utils.pi_health_check import health_worker
+from utils.router_health import get_router_health
+import utils.config
 
 
 class NetworkManager:
@@ -39,9 +42,9 @@ class NetworkManager:
                     ipv6_only = ip_v6.split("/")[0]
 
                 if ipv4_only:
-                    logger.info(
-                        f"{namespace} got IPv4: {ipv4_only} and IPv6: {ipv6_only or 'Not created'}"
-                    )
+                    # logger.info(
+                    #     f"{namespace} got IPv4: {ipv4_only} and IPv6: {ipv6_only or 'Not created'}"
+                    # )
                     self.client_info[namespace] = {
                         "mac": mac,
                         "ipv4": ipv4_only,
@@ -115,7 +118,13 @@ class NetworkManager:
                     await run_cmd(f"sudo mkdir -p /etc/netns/{ns}")
 
                     await run_cmd(
-                        f'echo "nameserver 8.8.8.8\nnameserver 1.1.1.1" | sudo tee /etc/netns/{ns}/resolv.conf'
+                        f'echo "nameserver 8.8.8.8" | sudo tee /etc/netns/{ns}/resolv.conf'
+                    )
+                    await run_cmd(
+                        f'echo "nameserver 1.1.1.1" | sudo tee -a /etc/netns/{ns}/resolv.conf'
+                    )
+                    await run_cmd(
+                        f'echo "nameserver 8.8.4.4" | sudo tee -a /etc/netns/{ns}/resolv.conf'
                     )
                     return
                 logger.warning(f"{ns} retrying IP acquisition ({attempt + 1}/4)...")
@@ -134,12 +143,25 @@ class NetworkManager:
     async def create_clients(self, count):
         start_time = time.monotonic()
 
+        stop_event_pi = asyncio.Event()
+        stop_event_router = asyncio.Event()
+
+        # Background Health Checks
+        asyncio.create_task(health_worker(stop_event_pi, "creation"))
+        asyncio.create_task(get_router_health(stop_event_router, "creation"))
+
         tasks = [self.create_client(i) for i in range(1, count + 1)]
         await asyncio.gather(*tasks)
 
         end_time = time.monotonic()
+
         elapsed_time = end_time - start_time
-        logger.info(f"Client creation took {elapsed_time / 60:.2f} minutes.")
+
+        stop_event_pi.set()
+        stop_event_router.set()
+
+        logger.info(f"Client creation took {elapsed_time:.2f} seconds.")
+        utils.config.time_taken = elapsed_time
 
         logger.info(f"----- ONLY {self.count} / {count} got IP ------")
         self.count = 0
@@ -155,8 +177,8 @@ class NetworkManager:
 
         logger.info(f"Created {count} namespaces successfully.")
 
-        logger.info("----- After creating client 10 sec Halt ------")
-        await asyncio.sleep(10)
+        logger.info("----- After creating client 20 sec Halt ------")
+        await asyncio.sleep(20)
 
     def display_client_table(self):
         table = PrettyTable()

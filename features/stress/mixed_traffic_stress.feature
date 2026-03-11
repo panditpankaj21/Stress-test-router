@@ -1,12 +1,9 @@
-Feature: Router Stress Testing using Virtual Clients
-  To evaluate router CPU and performance under heavy concurrent load
-  As a network tester
-  I want multiple macvlan-based clients to generate traffic simultaneously
+Feature: hybrid test
 
   Background: System Check
     Given the base network interface is available on the system
     
-  Scenario: Run a basic mixed-traffic load test
+  Scenario: hybrid test
     Given I initialize the Network Manager
     When I provision "5" virtual clients using macvlan
     Then no two clients should have the same IP address

@@ -1,6 +1,6 @@
 ROUTER_IPV4: "192.168.1.1"
 ROUTER_IPV6: "fe80::7693:daff:fecd:1730"
-INTERFACE: "eth0"
+INTERFACE: "enp0s31f6"
 PING_DURATION: 30
 DOWNLOAD_URL: "http://speedtest.tele2.net/10MB.zip"
 DOWNLOAD_TIMEOUT: 30              

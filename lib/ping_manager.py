@@ -8,6 +8,7 @@ from utils.logger import logger
 from utils.pi_health_check import health_worker
 from utils.router_health import get_router_health
 from lib.route_verifier import RouteVerifier
+import utils.config
 
 
 async def run_exec(cmd_args: List[str]) -> Dict[str, Any]:
@@ -44,13 +45,13 @@ class PingManager:
         self.ip_version = ip_version
         self.interval = interval
         self.verify_routes = verify_routes
+
         self.route_verifier = (
             RouteVerifier(expected_router_ip, isIPV6=(ip_version == "IPV6"))
             if verify_routes
             else None
         )
 
-        # Determine ping flag once
         self.ping_flag = "-6" if self.ip_version == "IPV6" else "-4"
 
         self.results: Dict[str, Any] = {}
@@ -67,9 +68,9 @@ class PingManager:
             "ping",
             self.ping_flag,
             "-c",
-            "1",  # Send 1 packet
+            "1",
             "-W",
-            "1",  # Wait max 1 second
+            "1",
             self.target_ip,
         ]
 
@@ -78,10 +79,8 @@ class PingManager:
         if result["returncode"] != 0:
             return {"success": False, "latency": 0.0, "error": result["stderr"]}
 
-        # Parse Latency (e.g., "time=14.2 ms")
         latency = 0.0
         try:
-            # Regex to find time=X.X
             match = re.search(r"time=([\d.]+)", result["stdout"])
             if match:
                 latency = float(match.group(1))
@@ -100,6 +99,7 @@ class PingManager:
             "total_latency": 0.0,
             "min_latency": 9999.0,
             "max_latency": 0.0,
+            "latencies": [],
             "errors": set(),
         }
 
@@ -113,41 +113,55 @@ class PingManager:
                 stats["total_latency"] += lat
                 stats["min_latency"] = min(stats["min_latency"], lat)
                 stats["max_latency"] = max(stats["max_latency"], lat)
+                stats["latencies"].append(lat)
             else:
-                # Capture unique errors
                 clean_err = (
                     res["error"].replace(self.target_ip, "").strip() or "Timeout"
                 )
                 stats["errors"].add(clean_err)
 
-                # Log only the first error to avoid flooding
                 if len(stats["errors"]) == 1:
                     logger.debug(f"{ns}: Ping failed - {clean_err}")
 
-            # Sleep with jitter to avoid packet bursts
             await asyncio.sleep(self.interval + random.uniform(0, 0.05))
 
-        # Calculate final metrics for this namespace
         loss_pct = 0.0
         avg_lat = 0.0
+        throughput = 0.0
 
         if stats["sent"] > 0:
             loss_pct = ((stats["sent"] - stats["received"]) / stats["sent"]) * 100
+            throughput = stats["received"] / self.duration  # Packets per second
 
         if stats["received"] > 0:
             avg_lat = stats["total_latency"] / stats["received"]
         else:
-            stats["min_latency"] = 0.0  # Reset if no packets received
+            stats["min_latency"] = 0.0
+
+        jitter = 0.0
+        if len(stats["latencies"]) > 1:
+            avg_latency = sum(stats["latencies"]) / len(stats["latencies"])
+            variance = sum(
+                (lat - avg_latency) ** 2 for lat in stats["latencies"]
+            ) / len(stats["latencies"])
+            jitter = round(variance**0.5, 2)
+
+        jitter_percentage = (jitter / avg_lat * 100) if avg_lat > 0 else 0.0
 
         self.results[ns] = {
             "loss_pct": round(loss_pct, 1),
             "avg_latency": round(avg_lat, 2),
             "min_latency": round(stats["min_latency"], 2),
             "max_latency": round(stats["max_latency"], 2),
+            "throughput": round(throughput, 2),
+            "jitter": jitter,
+            "jitter_percentage": round(jitter_percentage, 2),
             "sent": stats["sent"],
             "received": stats["received"],
             "errors": list(stats["errors"]),
         }
+
+        utils.config.metrics = self.results
 
         if loss_pct > 0:
             self.failure_messages[ns] = f"Loss {loss_pct}%"
@@ -159,15 +173,21 @@ class PingManager:
             "Namespace",
             "Status",
             "Loss %",
-            "Avg (ms)",
-            "Min/Max (ms)",
+            "Avg RTT (ms)",
+            "Min/Max RTT(ms)",
+            "Throughput (pps)",
+            "Jitter (ms)",
+            "Jitter (%)",
             "Sent/Recv",
             "Remarks",
         ]
         table.align = "l"
         table.align["Loss %"] = "r"
-        table.align["Avg (ms)"] = "r"
+        table.align["Avg RTT (ms)"] = "r"
         table.align["Status"] = "c"
+        table.align["Throughput (pps)"] = "r"
+        table.align["Jitter (ms)"] = "r"
+        table.align["Jitter (%)"] = "r"
 
         total_sent = 0
         total_recv = 0
@@ -197,12 +217,14 @@ class PingManager:
                     f"{data['loss_pct']}%",
                     f"{data['avg_latency']}",
                     f"{data['min_latency']}/{data['max_latency']}",
+                    f"{data['throughput']}",
+                    f"{data['jitter']}",
+                    f"{data['jitter_percentage']}%",
                     f"{data['sent']}/{data['received']}",
                     remarks,
                 ]
             )
 
-        # Global Stats
         global_loss = 0.0
         if total_sent > 0:
             global_loss = ((total_sent - total_recv) / total_sent) * 100

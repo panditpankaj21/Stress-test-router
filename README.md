@@ -1,6 +1,6 @@
-# Stress-Test Router
+# Router Performance and Stability Test
 
-**Stress-Test Router** is a tool to evaluate router performance by simulating multiple virtual clients using **Linux network namespaces** and **macvlan** technology. It runs an asynchronous workload on a **Raspberry Pi** while continuously monitoring system health metrics.
+A test framework that simultae mulitiple clients and test the router performance and stability under high traffic.
 
 [![Behave](https://img.shields.io/badge/Behave-BDD%20Framework-green)](https://behave.readthedocs.io/en/stable/)
 [![Linux Kernel](https://img.shields.io/badge/Linux-Kernel%20Docs-black)](https://kernel.org/doc/html/latest/)
@@ -8,28 +8,26 @@
 [![CI Status](https://img.shields.io/badge/CI-Passing-brightgreen)](https://github.com/panditpankaj21/Stress-test-router/actions)
 [![Documentation](https://img.shields.io/badge/Docs-Available-blue)](https://panditpankaj21.github.io/Stress-test-router/)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-yellow)](https://www.python.org/downloads/release/python-3100/)
-[![Raspberry Pi](https://img.shields.io/badge/Platform-Raspberry%20Pi-red)](https://www.raspberrypi.com/software/)
 [![License](https://img.shields.io/github/license/panditpankaj21/Stress-test-router)](https://github.com/panditpankaj21/Stress-test-router/blob/main/LICENSE)
-
 
 ---
 
 ## Overview
 
-Simulates numerous virtual clients to stress-test routers and networks. It facilitates deep insights by simulating client traffic and monitoring:
+This tool gives freedom to create mulitple clients that connected to router and test your router under diffrent-different traffic generation such as:
 
-- DHCP behavior  
-- IP assignment stability  
-- Download speeds  
-- Ping latency  
-- Raspberry Pi system stats: CPU usage, memory usage, temperature, and load during tests  
+1. Create multiple clients
+2. Ping to router to check connectivity towards router
+3. Ping to google.com/8.8.8.8, to check external connectivity via both IPV4 and IPV6
+4. Prallel dowloading 10MB zip file
+5. Video streaming, all client start streaming at the same time
+6. Hybrid test, in this every client perfoming different differnt task for 30 sec. Simulating real-world secnario.
+7. LAN-to-WLAN, one wifi client and others virtual client
 
 ### Use Cases
 
-- Router testing labs  
-- IoT and home network experiments  
-- Raspberry Pi network performance benchmarking  
-- Automated network stress testing  
+- Test Router performance and stability under high traffic
+- Parallel execution of tests
 
 ---
 
@@ -53,29 +51,34 @@ pip install -r requirements.txt
 
 ## Configuration
 
-Configure the test parameters in `config.yaml`:
+1. `config.yaml` change the variable with yours:
 
-| Parameter          | Description                            |
-|--------------------|------------------------------------|
-| `interface`        | Network interface (e.g., eth0, wlan0) |
-| `router_ip`        | Router's default gateway IP address  |
-| `ping_duration`    | Duration in seconds for ping tests    |
-| `download_timeout` | Maximum download test time (seconds)  |
-| `client_count`     | Number of virtual clients (namespaces) |
+   ```
+   ROUTER_IPV4: "192.168.1.1"
+   INTERFACE: "enp0s31f6"
+   PING_DURATION: 30
+   DOWNLOAD_TIMEOUT: 30   
+   video_duration: 30   
+   ```
+2. create `.env` and update it with variable:
 
-### Example Configuration
+   ```
+   ROUTER_MAC=""
+   HOST=""
+   USERNAME=""
+   PASSWORD="pi_ssh_password"
+   EMAIL=""
+   DOMAIN=""
+   PASSWD="router_ssh_password"
+   SSH_TIMEOUT=
+   WIFI_SSID=
+   WIFI_PASSWORD=
+   ```
 
-interface: "eth0"
-router_ip: "192.168.1.1"
-ping_duration: 30
-download_timeout: 60
-client_count: 20
 
 ---
 
 ## Running Tests
-
-**Root privileges are required to create network namespaces and macvlan interfaces.**
 
 - Run all tests:
 
@@ -86,25 +89,19 @@ sudo behave
 - Run a specific feature, for example ping:
 
 ```bash
-sudo behave features/ping.feature
-```
-
-- Run tests by tag (e.g., download tests):
-
-```bash
-sudo behave --tags "@download"
+sudo behave features/connectivity/goole_ping.feature
 ```
 
 ---
 
 ## Contributing
 
-Contributions are highly appreciated! Please follow these steps:
+Please follow these steps:
 
-1. Fork the repository  
-2. Create a feature branch (`git checkout -b feature-name`)  
-3. Commit your changes with clear messages  
-4. Push to your branch and open a Pull Request  
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature-name`)
+3. Commit your changes with clear messages
+4. Push to your branch and open a Pull Request
 
 > All PRs require passing CI checks before merging.
 

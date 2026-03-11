@@ -10,3 +10,6 @@ dotenv
 paramiko
 prettytable
 colorlog
+python-dotenv
+matplotlib
+pymongo
