@@ -8,6 +8,7 @@ from utils.logger import logger
 from utils.pi_health_check import health_worker
 from utils.router_health import get_router_health
 from lib.route_verifier import RouteVerifier
+import utils.config
 
 
 async def run_exec(cmd_args: List[str]) -> Dict[str, Any]:
@@ -159,6 +160,8 @@ class PingManager:
             "received": stats["received"],
             "errors": list(stats["errors"]),
         }
+
+        utils.config.metrics = self.results
 
         if loss_pct > 0:
             self.failure_messages[ns] = f"Loss {loss_pct}%"

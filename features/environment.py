@@ -17,7 +17,6 @@ from lib.report_generator import ReportGenerator
 from lib.excel_report_generator import ExcelReportGenerator
 from lib.excel_statistics_generator import ExcelStatisticsGenerator
 from lib.html_report_generator import HTMLReportGenerator
-import webbrowser
 
 summary_logger = None
 
@@ -227,6 +226,7 @@ def after_scenario(context, scenario):
     context.router_avg_cpu_test = utils.config.router_cpu_test
     context.test_time = datetime.now().isoformat()
     context.end_time = datetime.utcnow()
+    context.metrics = utils.config.metrics
 
 
     steps_data = []
@@ -236,7 +236,7 @@ def after_scenario(context, scenario):
         step_info = {
             "name": step.name,
             "status": step.status.name,
-            "keyword": step.keyword  # Given/When/Then
+            "keyword": step.keyword
         }
         
         if step.status.name == "failed":
@@ -261,26 +261,7 @@ def after_scenario(context, scenario):
         context.status = 'passed'
         context.failure_reason = ''
 
-    # logger.info("----- displaying the information --------")
-
-    # logger.info(context.router_mac)
-    # logger.info(context.router_firmware)
-    # logger.info(context.router_name)
-    # logger.info(context.router_model)
-    # logger.info(context.scenario_name)
-    # logger.info(context.feature_name)
-    # logger.info(context.status)
-    # logger.info(context.number_of_clients)
-    # logger.info(context.linux_avg_cpu_creation)
-    # logger.info(context.linux_avg_cpu_test)
-    # logger.info(context.time_taken)
-    # logger.info(context.router_avg_cpu_creation)
-    # logger.info(context.router_avg_cpu_test)
-    # logger.info(context.start_time)
-
-    # logger.info("----- end of the displaying the info -----")
-
-    # Store the test result in MongoDB
+    
     try:
         doc_id = context.db_handler.store_test_result(context)
         logger.info(f"Test result stored in MongoDB with ID: {doc_id}")
@@ -316,39 +297,21 @@ def after_scenario(context, scenario):
                     'router_avg_cpu_test': getattr(context, 'router_avg_cpu_test', 0),
                     'number_of_clients': context.number_of_clients,
                     'time_taken': getattr(context, 'time_taken', 0),
-                    'metrics': getattr(context, 'metrics', {}),
+                    'metrics': getattr(context, 'metrics', context.metrics),
                     'test_time': getattr(context, 'test_time', None),
                     'start_time': getattr(context, 'start_time'),
                     'end_time': getattr(context, 'end_time'),
                     "steps_data": getattr(context, 'steps_data', []),
                 }
                 
-                # Generate plots
                 router_cpu_img = context.report_generator.generate_router_cpu_plot(
                     historical_data, current_test
                 )
-                # # linux_cpu_img = context.report_generator.generate_linux_cpu_plot(
-                # #     historical_data, current_test
-                # # )
+
                 time_taken_img = context.report_generator.generate_time_taken_plot(
                     historical_data, current_test
                 )
                 
-                # Calculate metrics averages
-                # metrics_data = context.report_generator.calculate_metrics_average(historical_data)
-                
-                # Generate HTML report
-                # report_path = context.report_generator.generate_html_report(
-                #     current_test=current_test,
-                #     historical_data=historical_data,
-                #     router_cpu_img=router_cpu_img,
-                #     linux_cpu_img=linux_cpu_img,
-                #     time_taken_img=time_taken_img,
-                #     metrics_data=metrics_data
-                # )
-                
-                # logger.info(f"\n✓ Report generated: {report_path}")
-                # logger.info(f"  Open in browser: file://{os.path.abspath(report_path)}")
             else:
                 logger.info("\n⚠ No historical data found for comparison")
                 
@@ -356,49 +319,6 @@ def after_scenario(context, scenario):
             logger.info(f"\n✗ Failed to generate report: {e}")
             import traceback
             traceback.print_exc()
-
-
-
-
-    # end_time = datetime.now().isoformat()
-    # steps_data = []
-    # failure_message = None
-
-    # for step in scenario.steps:
-    #     step_info = {"name": step.name, "status": step.status.name}
-    #     if step.status.name == "failed":
-    #         step_info["failure_message"] = str(step.exception)
-    #         failure_message = str(step.exception)
-    #     elif step.status.name == "undefined":
-    #         step_info["failure_message"] = "Step definition not found"
-    #         failure_message = "Step definition not found"
-    #     elif step.status.name == "skipped":
-    #         step_info["failure_message"] = "Step skipped due to previous failure"
-    #     steps_data.append(step_info)
-
-    # scenario_result = {
-    #     "feature": scenario.feature.name,
-    #     "scenario": scenario.name,
-    #     "status": scenario.status.name,
-    #     "steps": steps_data,
-    #     "timestamps": {
-    #         "start": getattr(scenario, 'start_time', datetime.now().isoformat()),
-    #         "end": end_time,
-    #     },
-    #     "failure_message": failure_message,
-    # }
-
-    # json_file = "results/json/summary.json"
-    # try:
-    #     with open(json_file, "r") as f:
-    #         data = json.load(f)
-    # except (FileNotFoundError, json.JSONDecodeError):
-    #     data = []
-
-    # data.append(scenario_result)
-
-    # with open(json_file, "w") as f:
-    #     json.dump(data, f, indent=2)
 
     if summary_logger:
         summary_logger.info(
@@ -413,109 +333,6 @@ def after_all(context):
     logger.info("----- CLEANUP DONE SUCCESSFULLY -----")
     utils.config.router_ssh.disconnect()
 
-    
-    # Ask if user wants Excel report
-    # logger.info("\n" + "="*70)
-    # logger.info(" TEST EXECUTION COMPLETED")
-    # logger.info("\n"+"="*70)
-    
-    # response = input("\n Do you want to generate an Excel report of all tests? (yes/no): ").strip().lower()
-    
-    # if response in ['yes', 'y']:
-    #     try:
-    #         logger.info("\n⏳ Generating Excel report...")
-            
-    #         # Retrieve all test data from MongoDB
-    #         all_tests = context.db_handler.get_all_test_results()
-            
-    #         if not all_tests:
-    #             logger.info("  No test data found in database!")
-    #         else:
-    #             # Generate Excel report
-    #             excel_generator = ExcelReportGenerator()
-                
-    #             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    #             excel_filename = f"test_report_{timestamp}.xlsx"
-    #             excel_path = os.path.join("test_reports", excel_filename)
-                
-    #             # Ensure output directory exists
-    #             os.makedirs("test_reports", exist_ok=True)
-                
-    #             generated_path = excel_generator.generate_excel_report(all_tests, excel_path)
-                
-    #             logger.info(f"\n Excel report generated successfully!")
-    #             logger.info(f" File location: {os.path.abspath(generated_path)}")
-    #             logger.info(f" Total tests included: {len(all_tests)}")
-    #             logger.info(f" Routers analyzed: {len(set(t.get('router_mac') for t in all_tests if t.get('router_mac')))}")
-                
-    #     except Exception as e:
-    #         logger.info(f"\n Failed to generate Excel report: {e}")
-    #         import traceback
-    #         traceback.print_exc()
-    # else:
-    #     logger.info("\n Skipping Excel report generation.")
-    
-    # # Close MongoDB connection
-    # if hasattr(context, 'db_handler'):
-    #     context.db_handler.close()
-    #     logger.info("\n✓ MongoDB connection closed")
-    
-    # logger.info("\n" + "="*70)
-    # logger.info(" Thank you for using the test framework! \n")
-    # logger.info("="*70 + "\n")
-
-
-
-    # logger.info("\n" + "="*70)
-    # logger.info("🔔 TEST EXECUTION COMPLETED")
-    # logger.info("="*70)
-    
-    # logger.info(f"\n📊 Auto-updated statistics file: {os.path.abspath('test_reports/test_statistics.xlsx')}")
-    
-    # response = input("\n📈 Do you want to generate a comprehensive Excel analysis report? (yes/no): ").strip().lower()
-    
-    # if response in ['yes', 'y']:
-    #     try:
-    #         logger.info("\n⏳ Generating comprehensive Excel report...")
-            
-    #         # Retrieve all test data from MongoDB
-    #         all_tests = context.db_handler.get_all_test_results()
-            
-    #         if not all_tests:
-    #             logger.info("⚠️  No test data found in database!")
-    #         else:
-    #             # Generate comprehensive Excel report
-    #             excel_generator = ExcelReportGenerator()
-                
-    #             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    #             excel_filename = f"comprehensive_analysis_{timestamp}.xlsx"
-    #             excel_path = os.path.join("test_reports", excel_filename)
-                
-    #             generated_path = excel_generator.generate_excel_report(all_tests, excel_path)
-                
-    #             logger.info(f"\n✅ Comprehensive Excel report generated successfully!")
-    #             logger.info(f"📁 File location: {os.path.abspath(generated_path)}")
-    #             logger.info(f"📊 Total tests included: {len(all_tests)}")
-    #             logger.info(f"🔧 Routers analyzed: {len(set(t.get('router_mac') for t in all_tests if t.get('router_mac')))}")
-                
-    #     except Exception as e:
-    #         logger.info(f"\n❌ Failed to generate comprehensive Excel report: {e}")
-    #         import traceback
-    #         traceback.print_exc()
-    # else:
-    #     logger.info("\n⏭️  Skipping comprehensive Excel report generation.")
-    
-    # # Close MongoDB connection
-    # if hasattr(context, 'db_handler'):
-    #     context.db_handler.close()
-    #     logger.info("\n✓ MongoDB connection closed")
-    
-    # logger.info("\n" + "="*70)
-    # logger.info("👋 Thank you for using the test framework!")
-    # logger.info("="*70 + "\n")
-
-    
-    # Generate HTML report
     try:
         logger.info("\n⏳ Generating HTML report...")
         all_tests = context.db_handler.get_all_test_results()
@@ -523,14 +340,6 @@ def after_all(context):
         
         give_permission_cmd()
 
-        logger.info(f"✓ HTML report generated: {os.path.abspath(html_path)}")
-        print(f"✓ HTML report generated: {os.path.abspath(html_path)}")
-        print(f"  Open manually: file://{os.path.abspath(html_path)}")
-
-        
-        # Open in browser
-        webbrowser.open('file://' + os.path.abspath(html_path))
-        logger.info(f"✓ Report opened in browser")
     except Exception as e:
         logger.info(f"\n✗ Failed to generate HTML report: {e}")
         import traceback

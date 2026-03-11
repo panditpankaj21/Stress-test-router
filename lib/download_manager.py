@@ -7,6 +7,7 @@ from utils.pi_health_check import health_worker
 from utils.router_health import get_router_health
 from lib.route_verifier import RouteVerifier
 import psutil  # To capture system stats like CPU/Memory usage
+import utils.config
 
 
 async def run_cmd(cmd):
@@ -314,5 +315,7 @@ class DownloadManager:
                 [f"{ns}: {msg}" for ns, msg in self.failure_messages.items()]
             )
             raise AssertionError(f"Download test failed. Details: {details}")
+        
+        utils.config.metrics = results
 
         return {"download_results": results, "route_results": route_results}

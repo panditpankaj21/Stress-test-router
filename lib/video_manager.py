@@ -4,6 +4,7 @@ from prettytable import PrettyTable
 from utils.logger import logger
 from utils.pi_health_check import health_worker
 from utils.router_health import get_router_health
+import utils.config
 
 async def run_cmd(cmd, suppress_output=False, live_output=False):
     """

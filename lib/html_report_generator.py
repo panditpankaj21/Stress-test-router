@@ -140,6 +140,61 @@ class HTMLReportGenerator:
         </div>
         """
     
+    def _generate_metrics_table(self, metrics: Dict) -> str:
+        """Generate horizontal metrics table with namespaces sorted (ns1, ns2, ...)"""
+        if not metrics or not isinstance(metrics, dict):
+            return ""
+        
+        # Collect all metric keys across namespaces
+        all_keys = set()
+        for ns, values in metrics.items():
+            all_keys.update(values.keys())
+        all_keys = sorted(all_keys)  # consistent ordering
+        
+        # Sort namespaces like ns1, ns2, ns3...
+        sorted_namespaces = sorted(metrics.keys(), key=lambda x: (x.isdigit(), x))
+        
+        html = """
+            <h3>Test Metrics</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Namespace</th>
+        """
+        for key in all_keys:
+            attribute_name = key.replace('_', ' ').title()
+            html += f"<th>{attribute_name}</th>"
+        html += """
+                    </tr>
+                </thead>
+                <tbody>
+        """
+        
+        # Build rows for each namespace
+        for ns in sorted_namespaces:
+            values = metrics[ns]
+            html += f"<tr><td>{ns}</td>"
+            for key in all_keys:
+                val = values.get(key, "N/A")
+                if isinstance(val, float):
+                    formatted_value = f"{val:.2f}"
+                elif isinstance(val, int):
+                    formatted_value = str(val)
+                elif isinstance(val, list):
+                    formatted_value = ", ".join(str(v) for v in val) if val else ""
+                else:
+                    formatted_value = str(val)
+                html += f"<td style='font-family: monospace;'>{formatted_value}</td>"
+            html += "</tr>"
+        
+        html += """
+                </tbody>
+            </table>
+        """
+        
+        return html
+
+
     def _get_css(self) -> str:
         """Get minimal professional CSS styling"""
         return """
@@ -564,6 +619,11 @@ class HTMLReportGenerator:
             </div>
 """
         
+        # Test Metrics Table (NEW)
+        test_metrics = recent_test.get('metrics')
+        if test_metrics:
+            html += self._generate_metrics_table(test_metrics)
+        
         # Test Steps Details
         steps_data = recent_test.get('steps_data', [])
         if steps_data:
@@ -691,8 +751,8 @@ class HTMLReportGenerator:
     <div class="container">
         {self._get_header_html()}
         {self._generate_recent_test_section(all_tests)}
-    </div>
         {self._get_footer_html()}
+    </div>
 </body>
 </html>
 """
@@ -723,7 +783,6 @@ class HTMLReportGenerator:
         
         # Return path to index page
         return os.path.join(self.report_dir, 'index.html')
-
     
     def _generate_empty_report(self) -> str:
         """Generate empty state report"""
@@ -735,31 +794,29 @@ class HTMLReportGenerator:
         self._copy_logos_to_report()
         
         html = f"""<!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Test Report - No Data</title>
-        <style>{self._get_css()}</style>
-    </head>
-    <body>
-        <div class="container">
-            {self._get_header_html()}
-            <div class="content-wrapper">
-                <p style="text-align: center; padding: 60px; color: #7f8c8d; font-size: 16px;">
-                    No test data available. Run some tests to generate a report.
-                </p>
-            </div>
-            {self._get_footer_html()}
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Report - No Data</title>
+    <style>{self._get_css()}</style>
+</head>
+<body>
+    <div class="container">
+        {self._get_header_html()}
+        <div class="content-wrapper">
+            <p style="text-align: center; padding: 60px; color: #7f8c8d; font-size: 16px;">
+                No test data available. Run some tests to generate a report.
+            </p>
         </div>
-    </body>
-    </html>
-    """
+        {self._get_footer_html()}
+    </div>
+</body>
+</html>
+"""
         
         filepath = os.path.join(self.report_dir, 'index.html')
         with open(filepath, 'w', encoding='utf-8') as f:
             f.write(html)
         
-        self._set_permissions()
         return filepath
-
