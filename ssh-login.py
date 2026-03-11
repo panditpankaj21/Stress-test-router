@@ -160,9 +160,8 @@ def usage():
 
 if __name__ == "__main__":
 
-
     # Parse and interpret options.
-    (opts, val) = getopt.getopt(
+    opts, val = getopt.getopt(
         sys.argv[1:], "i:n:e:h", ["nodeid=", "noc=", "enable=", "help"]
     )
     # print(opts,val)

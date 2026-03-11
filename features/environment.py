@@ -1,12 +1,10 @@
 import os
-import re
 import yaml
 import json
 import asyncio
 import logging
 import subprocess
 from dotenv import load_dotenv
-import time
 from datetime import datetime
 from utils.logger import logger
 from utils.command_runner import run_cmd
@@ -14,18 +12,19 @@ from utils.router_ssh import create_router_ssh
 import utils.config
 from lib.mongo_handler import TestDataHandler
 from lib.report_generator import ReportGenerator
-from lib.excel_report_generator import ExcelReportGenerator
-from lib.excel_statistics_generator import ExcelStatisticsGenerator
 from lib.html_report_generator import HTMLReportGenerator
 
 summary_logger = None
 
-MONGODB_CONNECTION_STRING = "mongodb+srv://pkp20022_db_user:Nfo60hcufd2tVwLW@cluster0.cxkwlpd.mongodb.net/"
+MONGODB_CONNECTION_STRING = (
+    "mongodb+srv://pkp20022_db_user:Nfo60hcufd2tVwLW@cluster0.cxkwlpd.mongodb.net/"
+)
+
 
 def shorten_ipv6_one_digit(addr):
     if "::" in addr:
         prefix, rest = addr.split("::", 1)
-        if rest:  
+        if rest:
             first_group = rest.split(":")[0]
             return prefix + "::" + first_group[0]
         else:
@@ -38,7 +37,7 @@ def get_router_global_ipv6():
         output = subprocess.check_output(
             "ip -6 addr show scope global | awk '/inet6/ {print $2}' | cut -d/ -f1 | head -1",
             shell=True,
-            text=True
+            text=True,
         ).strip()
 
         if output.startswith(("2", "3")):
@@ -46,6 +45,7 @@ def get_router_global_ipv6():
         return None
     except Exception as e:
         raise AssertionError(f"Error: {e}")
+
 
 def setup_summary_logger():
     """
@@ -107,6 +107,7 @@ async def async_cleanup_report_files():
         logger.info("Report files cleaned up successfully.")
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed to clean up report files: {e}")
+
 
 def cleanup_report_files():
     asyncio.run(async_cleanup_report_files())
@@ -171,7 +172,6 @@ def before_all(context):
     if not context.ssid or not context.password:
         raise ValueError("WIFI_SSID and WIFI_PASSWORD must be set in .env")
 
-
     logger.info("----- INITIALIZING ROUTER SSH MANAGER -----")
     utils.config.router_ssh = create_router_ssh()
     try:
@@ -180,21 +180,19 @@ def before_all(context):
     except Exception as e:
         logger.error(f"Failed to connect to router: {e}")
         raise AssertionError(f"Failed to Connect to router: {e}")
-    
-    
+
     # getting information about the Router
     logger.info("----- Getting Router Info -----")
-    try: 
+    try:
         router_info = utils.config.router_ssh.get_router_info()
         context.router_mac = router_info.get('router_mac')
         context.router_firmware = router_info.get('router_firmware')
         context.router_name = router_info.get('router_name')
         context.router_model = router_info.get('router_model')
-        
+
     except Exception as e:
         logger.info(f"Failed to get Riouter information: {e}")
         raise AssertionError(f"Failed to get Riouter information: {e}")
-
 
     logger.info("----- LOADING CONFIGURATION -----")
     try:
@@ -215,8 +213,8 @@ def before_scenario(context, scenario):
 
 
 def after_scenario(context, scenario):
-     
-    #getting information about the secenario and feature
+
+    # getting information about the secenario and feature
     context.scenario_name = scenario.name
     context.feature_name = scenario.feature.name
     context.linux_avg_cpu_creation = utils.config.linux_cpu_creation
@@ -228,17 +226,16 @@ def after_scenario(context, scenario):
     context.end_time = datetime.utcnow()
     context.metrics = utils.config.metrics
 
-
     steps_data = []
     failure_message = None
-    
+
     for step in scenario.steps:
         step_info = {
             "name": step.name,
             "status": step.status.name,
-            "keyword": step.keyword
+            "keyword": step.keyword,
         }
-        
+
         if step.status.name == "failed":
             step_info["failure_message"] = str(step.exception)
             failure_message = str(step.exception)
@@ -247,40 +244,43 @@ def after_scenario(context, scenario):
             failure_message = "Step definition not found"
         elif step.status.name == "skipped":
             step_info["failure_message"] = "Step skipped due to previous failure"
-        
+
         steps_data.append(step_info)
-    
+
     # Store in context
     context.steps_data = steps_data
-    
+
     # Capture failure reason if test failed
     if scenario.status.name == 'failed':
         context.status = 'failed'
-        context.failure_reason = failure_message if failure_message else 'Test failed - reason not captured'
+        context.failure_reason = (
+            failure_message if failure_message else 'Test failed - reason not captured'
+        )
     else:
         context.status = 'passed'
         context.failure_reason = ''
 
-    
     try:
         doc_id = context.db_handler.store_test_result(context)
         logger.info(f"Test result stored in MongoDB with ID: {doc_id}")
     except Exception as e:
         logger.info(f"✗ Failed to store test result: {e}")
         return
-    
 
-
-    if hasattr(context, 'router_mac') and hasattr(context, 'feature_name') and hasattr(context, 'number_of_clients'):
+    if (
+        hasattr(context, 'router_mac')
+        and hasattr(context, 'feature_name')
+        and hasattr(context, 'number_of_clients')
+    ):
         try:
             # Get historical data for comparison
             historical_data = context.db_handler.get_filtered_results(
                 router_mac=context.router_mac,
                 feature_name=context.feature_name,
                 number_of_clients=context.number_of_clients,
-                limit=50  # Last 50 tests
+                limit=50,  # Last 50 tests
             )
-            
+
             if historical_data:
                 # Prepare current test data
                 current_test = {
@@ -291,9 +291,13 @@ def after_scenario(context, scenario):
                     'status': getattr(context, 'status', 'Unknown'),
                     'scenario_name': context.scenario_name,
                     'feature_name': context.feature_name,
-                    'linux_avg_cpu_creation': getattr(context, 'linux_avg_cpu_creation', 0),
+                    'linux_avg_cpu_creation': getattr(
+                        context, 'linux_avg_cpu_creation', 0
+                    ),
                     'linux_avg_cpu_test': getattr(context, 'linux_avg_cpu_test', 0),
-                    'router_avg_cpu_creation': getattr(context, 'router_avg_cpu_creation', 0),
+                    'router_avg_cpu_creation': getattr(
+                        context, 'router_avg_cpu_creation', 0
+                    ),
                     'router_avg_cpu_test': getattr(context, 'router_avg_cpu_test', 0),
                     'number_of_clients': context.number_of_clients,
                     'time_taken': getattr(context, 'time_taken', 0),
@@ -303,21 +307,22 @@ def after_scenario(context, scenario):
                     'end_time': getattr(context, 'end_time'),
                     "steps_data": getattr(context, 'steps_data', []),
                 }
-                
-                router_cpu_img = context.report_generator.generate_router_cpu_plot(
+
+                context.report_generator.generate_router_cpu_plot(
                     historical_data, current_test
                 )
 
-                time_taken_img = context.report_generator.generate_time_taken_plot(
+                context.report_generator.generate_time_taken_plot(
                     historical_data, current_test
                 )
-                
+
             else:
                 logger.info("\n⚠ No historical data found for comparison")
-                
+
         except Exception as e:
             logger.info(f"\n✗ Failed to generate report: {e}")
             import traceback
+
             traceback.print_exc()
 
     if summary_logger:
@@ -336,21 +341,24 @@ def after_all(context):
     try:
         logger.info("\n⏳ Generating HTML report...")
         all_tests = context.db_handler.get_all_test_results()
-        html_path = context.html_generator.generate_html_report(all_tests)
-        
+        context.html_generator.generate_html_report(all_tests)
+
         give_permission_cmd()
 
     except Exception as e:
         logger.info(f"\n✗ Failed to generate HTML report: {e}")
         import traceback
+
         traceback.print_exc()
 
+    logger.info(
+        "\n" + "=" * 70 + "\nThank you for using the test framework!\n" + "=" * 70
+    )
 
-
-    logger.info("\n" + "="*70 + "\nThank you for using the test framework!\n" + "="*70)
 
 def give_permission_cmd():
     asyncio.run(async_give_permission_cmd())
+
 
 async def async_give_permission_cmd():
     try:

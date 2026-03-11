@@ -25,7 +25,7 @@ class RouteVerifier:
 
     def __init__(self, expected_router_ip=None, isIPV6=False):
         self.expected_router_ip = expected_router_ip
-        logger.info(f"Expected Router is: {self.expected_router_ip} \n");
+        logger.info(f"Expected Router is: {self.expected_router_ip} \n")
         self.isIPV6 = isIPV6
         self.route_cache = {}
 

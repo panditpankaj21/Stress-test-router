@@ -1,12 +1,10 @@
 import asyncio
 import time
-import random
 from prettytable import PrettyTable
 from utils.logger import logger
 from utils.pi_health_check import health_worker
 from utils.router_health import get_router_health
 from lib.route_verifier import RouteVerifier
-import psutil  # To capture system stats like CPU/Memory usage
 import utils.config
 
 
@@ -24,6 +22,7 @@ async def run_cmd(cmd):
         "stdout": stdout.decode().strip() if stdout else "",
         "stderr": stderr.decode().strip() if stderr else "",
     }
+
 
 class DownloadManager:
     def __init__(
@@ -224,9 +223,9 @@ class DownloadManager:
 
         avg_speed = round(total_speed / success_count, 2) if success_count > 0 else 0
         avg_time = round(total_time / success_count, 2) if success_count > 0 else 0
-        avg_start_transfer_time = round(
-            total_start_transfer / success_count, 2
-        ) if success_count > 0 else 0
+        avg_start_transfer_time = (
+            round(total_start_transfer / success_count, 2) if success_count > 0 else 0
+        )
 
         logger.info(
             "\n"
@@ -315,7 +314,7 @@ class DownloadManager:
                 [f"{ns}: {msg}" for ns, msg in self.failure_messages.items()]
             )
             raise AssertionError(f"Download test failed. Details: {details}")
-        
+
         utils.config.metrics = results
 
         return {"download_results": results, "route_results": route_results}

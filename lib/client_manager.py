@@ -117,9 +117,15 @@ class NetworkManager:
                     self.count += 1
                     await run_cmd(f"sudo mkdir -p /etc/netns/{ns}")
 
-                    await run_cmd(f'echo "nameserver 8.8.8.8" | sudo tee /etc/netns/{ns}/resolv.conf')
-                    await run_cmd(f'echo "nameserver 1.1.1.1" | sudo tee -a /etc/netns/{ns}/resolv.conf')
-                    await run_cmd(f'echo "nameserver 8.8.4.4" | sudo tee -a /etc/netns/{ns}/resolv.conf')
+                    await run_cmd(
+                        f'echo "nameserver 8.8.8.8" | sudo tee /etc/netns/{ns}/resolv.conf'
+                    )
+                    await run_cmd(
+                        f'echo "nameserver 1.1.1.1" | sudo tee -a /etc/netns/{ns}/resolv.conf'
+                    )
+                    await run_cmd(
+                        f'echo "nameserver 8.8.4.4" | sudo tee -a /etc/netns/{ns}/resolv.conf'
+                    )
                     return
                 logger.warning(f"{ns} retrying IP acquisition ({attempt + 1}/4)...")
                 await asyncio.sleep(1)
@@ -141,9 +147,8 @@ class NetworkManager:
         stop_event_router = asyncio.Event()
 
         # Background Health Checks
-        pi_task = asyncio.create_task(health_worker(stop_event_pi, "creation"))
-        router_task = asyncio.create_task(get_router_health(stop_event_router, "creation"))
-
+        asyncio.create_task(health_worker(stop_event_pi, "creation"))
+        asyncio.create_task(get_router_health(stop_event_router, "creation"))
 
         tasks = [self.create_client(i) for i in range(1, count + 1)]
         await asyncio.gather(*tasks)

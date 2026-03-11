@@ -1,13 +1,13 @@
 """
 Generate visual reports from test data
 """
+
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict
 import os
 import statistics
-
 
 
 class ReportGenerator:
@@ -15,84 +15,115 @@ class ReportGenerator:
         """Initialize report generator"""
         self.output_dir = output_dir
         os.makedirs(output_dir, exist_ok=True)
-        
+
         # Set style for better-looking plots
         plt.style.use('seaborn-darkgrid')
-    
-    def generate_router_cpu_plot(self, test_data: List[Dict], current_test: Dict) -> str:
+
+    def generate_router_cpu_plot(
+        self, test_data: List[Dict], current_test: Dict
+    ) -> str:
         """
         Generate router CPU utilization over time plot
         Returns: path to saved image
         """
         if not test_data:
             return None
-        
+
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8))
-        
+
         # Sort by test time
         sorted_data = sorted(test_data, key=lambda x: x['test_time'])
-        
+
         # Create readable test labels
         test_labels = [f"Test #{idx}" for idx in range(1, len(sorted_data) + 1)]
         x_positions = range(1, len(test_labels) + 1)
-        
+
         cpu_creation = [d.get('router_avg_cpu_creation', 0) for d in sorted_data]
         cpu_test = [d.get('router_avg_cpu_test', 0) for d in sorted_data]
-        
+
         # Plot 1: Router CPU during creation
-        ax1.plot(x_positions, cpu_creation, marker='o', linewidth=2, markersize=6, 
-                label='CPE During Creation', color='#2E86AB')
+        ax1.plot(
+            x_positions,
+            cpu_creation,
+            marker='o',
+            linewidth=2,
+            markersize=6,
+            label='CPE During Creation',
+            color='#2E86AB',
+        )
         avg_creation = statistics.mean(cpu_creation) if cpu_creation else 0
-        ax1.axhline(y=avg_creation, 
-                color='r', linestyle='--', label=f'Average: {avg_creation:.2f}%', alpha=0.7)
+        ax1.axhline(
+            y=avg_creation,
+            color='r',
+            linestyle='--',
+            label=f'Average: {avg_creation:.2f}%',
+            alpha=0.7,
+        )
         ax1.set_xlabel('Test Number', fontsize=11)
         ax1.set_ylabel('CPE Utilization (%)', fontsize=11)
-        ax1.set_title(f'Feature: {current_test.get("feature_name", "Unknown")} with '
-                    f'{current_test.get("number_of_clients", 0)} Client\n\n'
-                    'CPE Utilization During Client Creation\n', 
-                    fontsize=13, fontweight='bold')
+        ax1.set_title(
+            f'Feature: {current_test.get("feature_name", "Unknown")} with '
+            f'{current_test.get("number_of_clients", 0)} Client\n\n'
+            'CPE Utilization During Client Creation\n',
+            fontsize=13,
+            fontweight='bold',
+        )
         ax1.legend(loc='upper right')
         ax1.grid(True, alpha=0.3, axis='y')
         ax1.set_xticks(x_positions)
         ax1.set_xticklabels(test_labels, rotation=45, ha='right')
-        
+
         # Add some padding to y-axis
         if cpu_creation:
             y_max = max(cpu_creation) * 2
             y_min = min(cpu_creation)
             y_range = y_max - y_min if y_max != y_min else y_max
             ax1.set_ylim(max(0, y_min - y_range * 0.1), y_max + y_range * 0.1)
-        
+
         # Plot 2: Router CPU during test
-        ax2.plot(x_positions, cpu_test, marker='s', linewidth=2, markersize=6, 
-                label='CPE During Test', color='#A23B72')
+        ax2.plot(
+            x_positions,
+            cpu_test,
+            marker='s',
+            linewidth=2,
+            markersize=6,
+            label='CPE During Test',
+            color='#A23B72',
+        )
         avg_test = statistics.mean(cpu_test) if cpu_test else 0
-        ax2.axhline(y=avg_test, 
-                color='r', linestyle='--', label=f'Average: {avg_test:.2f}%', alpha=0.7)
+        ax2.axhline(
+            y=avg_test,
+            color='r',
+            linestyle='--',
+            label=f'Average: {avg_test:.2f}%',
+            alpha=0.7,
+        )
         ax2.set_xlabel('Test Number', fontsize=11)
         ax2.set_ylabel('CPE Utilization (%)', fontsize=11)
-        ax2.set_title('CPE Utilization During Test Execution', fontsize=13, fontweight='bold')
+        ax2.set_title(
+            'CPE Utilization During Test Execution', fontsize=13, fontweight='bold'
+        )
         ax2.legend(loc='upper right')
         ax2.grid(True, alpha=0.3, axis='y')
         ax2.set_xticks(x_positions)
         ax2.set_xticklabels(test_labels, rotation=45, ha='right')
-        
+
         # Add some padding to y-axis
         if cpu_test:
             y_max = max(cpu_test) * 2
             y_min = min(cpu_test)
             y_range = y_max - y_min if y_max != y_min else y_max
             ax2.set_ylim(max(0, y_min - y_range * 0.1), y_max + y_range * 0.1)
-        
+
         plt.tight_layout()
-        
+
         filename = f"{current_test.get('router_model')}_{current_test.get('router_name')}_cpu_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
         filepath = os.path.join(self.output_dir, filename)
         plt.savefig(filepath, dpi=300, bbox_inches='tight')
         plt.close()
-        
+
         return filepath
-    
+
     def generate_linux_cpu_plot(self, test_data: List[Dict], current_test: Dict) -> str:
         """
         Generate Linux CPU utilization over time plot
@@ -100,34 +131,62 @@ class ReportGenerator:
         """
         if not test_data:
             return None
-        
+
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8))
-        
+
         sorted_data = sorted(test_data, key=lambda x: x['test_time'])
-        
+
         test_times = [d['test_time'] for d in sorted_data]
         cpu_creation = [d.get('linux_avg_cpu_creation', 0) for d in sorted_data]
         cpu_test = [d.get('linux_avg_cpu_test', 0) for d in sorted_data]
-        
+
         # Plot 1: Linux CPU during creation
-        ax1.plot(test_times, cpu_creation, marker='o', linewidth=2, markersize=6, 
-                label='CPU During Creation', color='#F18F01')
-        ax1.axhline(y=statistics.mean(cpu_creation) if cpu_creation else 0, 
-                   color='r', linestyle='--', label='Average', alpha=0.7)
+        ax1.plot(
+            test_times,
+            cpu_creation,
+            marker='o',
+            linewidth=2,
+            markersize=6,
+            label='CPU During Creation',
+            color='#F18F01',
+        )
+        ax1.axhline(
+            y=statistics.mean(cpu_creation) if cpu_creation else 0,
+            color='r',
+            linestyle='--',
+            label='Average',
+            alpha=0.7,
+        )
         ax1.set_xlabel('Test Time', fontsize=11)
         ax1.set_ylabel('CPU Utilization (%)', fontsize=11)
-        ax1.set_title(f'Linux CPU During Client Creation\nFeature: {current_test.get("feature_name", "Unknown")} -'
-                     f'{current_test.get("number_of_clients", 0)} Client', fontsize=13, fontweight='bold')
+        ax1.set_title(
+            f'Linux CPU During Client Creation\nFeature: {current_test.get("feature_name", "Unknown")} -'
+            f'{current_test.get("number_of_clients", 0)} Client',
+            fontsize=13,
+            fontweight='bold',
+        )
         ax1.legend()
         ax1.grid(True, alpha=0.3)
         ax1.xaxis.set_major_formatter(mdates.DateFormatter('%m/%d %H:%M'))
         plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45, ha='right')
-        
+
         # Plot 2: Linux CPU during test
-        ax2.plot(test_times, cpu_test, marker='s', linewidth=2, markersize=6, 
-                label='CPU During Test', color='#C73E1D')
-        ax2.axhline(y=statistics.mean(cpu_test) if cpu_test else 0, 
-                   color='r', linestyle='--', label='Average', alpha=0.7)
+        ax2.plot(
+            test_times,
+            cpu_test,
+            marker='s',
+            linewidth=2,
+            markersize=6,
+            label='CPU During Test',
+            color='#C73E1D',
+        )
+        ax2.axhline(
+            y=statistics.mean(cpu_test) if cpu_test else 0,
+            color='r',
+            linestyle='--',
+            label='Average',
+            alpha=0.7,
+        )
         ax2.set_xlabel('Test Time', fontsize=11)
         ax2.set_ylabel('CPU Utilization (%)', fontsize=11)
         ax2.set_title('Linux CPU During Test Execution', fontsize=13, fontweight='bold')
@@ -135,81 +194,98 @@ class ReportGenerator:
         ax2.grid(True, alpha=0.3)
         ax2.xaxis.set_major_formatter(mdates.DateFormatter('%m/%d %H:%M'))
         plt.setp(ax2.xaxis.get_majorticklabels(), rotation=45, ha='right')
-        
+
         plt.tight_layout()
-        
+
         filename = f"machine_cpu_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
         filepath = os.path.join(self.output_dir, filename)
         plt.savefig(filepath, dpi=300, bbox_inches='tight')
         plt.close()
-        
+
         return filepath
-    
-    def generate_time_taken_plot(self, test_data: List[Dict], current_test: Dict) -> str:
+
+    def generate_time_taken_plot(
+        self, test_data: List[Dict], current_test: Dict
+    ) -> str:
         """
         Generate time taken to create clients plot
         Returns: path to saved image
         """
         if not test_data:
             return None
-        
+
         fig, ax = plt.subplots(figsize=(12, 6))
-        
+
         sorted_data = sorted(test_data, key=lambda x: x['test_time'])
-        
+
         # Create readable test labels instead of raw dates
         test_labels = []
         time_taken_seconds = []
-        
+
         for idx, d in enumerate(sorted_data, 1):
             # Create label like "Test #1", "Test #2", etc.
             test_labels.append(f"Test #{idx}")
             # Convert time to seconds if it's in minutes
             time_val = d.get('time_taken', 0)
             time_taken_seconds.append(time_val)
-        
+
         # Create x-axis positions
         x_positions = range(1, len(test_labels) + 1)
-        
-        ax.plot(x_positions, time_taken_seconds, marker='D', linewidth=2, markersize=7, 
-            label='Time Taken', color='#06A77D')
-        ax.axhline(y=statistics.mean(time_taken_seconds) if time_taken_seconds else 0, 
-                color='r', linestyle='--', label=f'Average: {statistics.mean(time_taken_seconds):.2f}s', alpha=0.7)
-        
+
+        ax.plot(
+            x_positions,
+            time_taken_seconds,
+            marker='D',
+            linewidth=2,
+            markersize=7,
+            label='Time Taken',
+            color='#06A77D',
+        )
+        ax.axhline(
+            y=statistics.mean(time_taken_seconds) if time_taken_seconds else 0,
+            color='r',
+            linestyle='--',
+            label=f'Average: {statistics.mean(time_taken_seconds):.2f}s',
+            alpha=0.7,
+        )
+
         ax.set_xlabel('Test Number', fontsize=11)
         ax.set_ylabel('Time (seconds)', fontsize=11)
-        ax.set_title(f'Feature: {current_test.get("feature_name", "Unknown")} with '
-                    f'{current_test.get("number_of_clients", 0)} Client\n\n'
-                    f'Time Required to Create Clients\n', 
-                    fontsize=13, fontweight='bold')
+        ax.set_title(
+            f'Feature: {current_test.get("feature_name", "Unknown")} with '
+            f'{current_test.get("number_of_clients", 0)} Client\n\n'
+            f'Time Required to Create Clients\n',
+            fontsize=13,
+            fontweight='bold',
+        )
         ax.legend(loc='upper right')
         ax.grid(True, alpha=0.3, axis='y')
-        
+
         # Set x-axis to show test numbers
         ax.set_xticks(x_positions)
         ax.set_xticklabels(test_labels, rotation=45, ha='right')
-        
+
         # Add some padding to y-axis
         if time_taken_seconds:
             y_max = max(time_taken_seconds) * 2
             y_min = min(time_taken_seconds)
             y_range = y_max - y_min
             ax.set_ylim(max(0, y_min - y_range * 0.1), y_max + y_range * 0.1)
-        
+
         plt.tight_layout()
-        
+
         filename = f"time_taken_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
         filepath = os.path.join(self.output_dir, filename)
         plt.savefig(filepath, dpi=300, bbox_inches='tight')
         plt.close()
-        
+
         return filepath
-    
+
     def calculate_metrics_average(self, test_data: List[Dict]) -> Dict[str, float]:
         """Calculate average of metrics across all tests"""
 
         all_metrics = {}
-        
+
         for test in test_data:
             metrics = test.get('metrics', {})
             if metrics:
@@ -218,7 +294,7 @@ class ReportGenerator:
                         if key not in all_metrics:
                             all_metrics[key] = []
                         all_metrics[key].append(value)
-        
+
         # Calculate averages
         averaged_metrics = {}
         for key, values in all_metrics.items():
@@ -227,29 +303,29 @@ class ReportGenerator:
                     'average': statistics.mean(values),
                     'min': min(values),
                     'max': max(values),
-                    'count': len(values)
+                    'count': len(values),
                 }
-        
-        return averaged_metrics 
-    
+
+        return averaged_metrics
+
     def generate_html_report(
-        self, 
-        current_test: Dict, 
+        self,
+        current_test: Dict,
         historical_data: List[Dict],
         router_cpu_img: str,
         linux_cpu_img: str,
         time_taken_img: str,
-        metrics_data: Dict
+        metrics_data: Dict,
     ) -> str:
         """Generate comprehensive HTML report"""
-        
+
         # Convert image paths to relative paths
         def get_img_tag(img_path):
             if img_path:
                 filename = os.path.basename(img_path)
                 return f'<img src="{filename}" alt="Chart" style="max-width: 100%; height: auto; margin: 20px 0;">'
             return '<p style="color: #666;">No data available</p>'
-        
+
         # Build metrics table
         metrics_html = ""
         if metrics_data:
@@ -290,7 +366,7 @@ class ReportGenerator:
                 <p style="color: #666; font-style: italic;">No metrics data available for this test.</p>
             </div>
             """
-        
+
         html_content = f"""
         <!DOCTYPE html>
         <html lang="en">
@@ -571,11 +647,11 @@ class ReportGenerator:
         </body>
         </html>
         """
-        
+
         filename = f"test_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
         filepath = os.path.join(self.output_dir, filename)
-        
+
         with open(filepath, 'w', encoding='utf-8') as f:
             f.write(html_content)
-        
+
         return filepath

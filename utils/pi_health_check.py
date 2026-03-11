@@ -37,8 +37,8 @@ async def health_worker(stop_event, type="test"):
         pi_cpu = 100 - data['cpu']
         cnt = cnt + 1
         await asyncio.sleep(2)
-    
-    if type=="creation":
-        utils.config.linux_cpu_creation = pi_cpu/cnt
+
+    if type == "creation":
+        utils.config.linux_cpu_creation = pi_cpu / cnt
     else:
-        utils.config.linux_cpu_test = pi_cpu/cnt
+        utils.config.linux_cpu_test = pi_cpu / cnt

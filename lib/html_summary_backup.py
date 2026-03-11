@@ -2,6 +2,7 @@
 Professional HTML Report Generator for Test Results
 Creates clean, multi-page HTML reports with minimal styling
 """
+
 from datetime import datetime
 from typing import List, Dict, Any
 import os
@@ -19,12 +20,14 @@ class HTMLReportGenerator:
     def _copy_logos_to_report(self):
         """Copy logo files to report directory for self-contained reports"""
         try:
-            logo_dir = os.path.join(os.path.dirname(os.path.dirname(self.report_dir)), 'logo')
-            
+            logo_dir = os.path.join(
+                os.path.dirname(os.path.dirname(self.report_dir)), 'logo'
+            )
+
             if not os.path.exists(logo_dir):
                 print(f"Warning: Logo directory not found at {logo_dir}")
                 return
-            
+
             # Copy each logo file
             for logo_file in ['cognizant_logo.png', 'charter_logo.png']:
                 src_path = os.path.join(logo_dir, logo_file)
@@ -35,38 +38,40 @@ class HTMLReportGenerator:
                     print(f"✓ Copied logo: {logo_file}")
                 else:
                     print(f"Warning: Logo not found: {src_path}")
-                    
+
         except Exception as e:
             print(f"Warning: Could not copy logos: {e}")
-    
+
     def _aggregate_router_data(self, all_tests: List[Dict]) -> Dict:
         """Aggregate test data by router"""
-        aggregated = defaultdict(lambda: {
-            'router_name': None,
-            'router_model': None,
-            'router_firmware': None,
-            'router_mac': None,
-            'total_tests': 0,
-            'passed_tests': 0,
-            'failed_tests': 0,
-            'total_duration': 0,
-            'features': defaultdict(list),
-            'failed_tests_details': []
-        })
-        
+        aggregated = defaultdict(
+            lambda: {
+                'router_name': None,
+                'router_model': None,
+                'router_firmware': None,
+                'router_mac': None,
+                'total_tests': 0,
+                'passed_tests': 0,
+                'failed_tests': 0,
+                'total_duration': 0,
+                'features': defaultdict(list),
+                'failed_tests_details': [],
+            }
+        )
+
         for test in all_tests:
             router_mac = test.get('router_mac')
             if not router_mac:
                 continue
-            
+
             router_data = aggregated[router_mac]
-            
+
             if not router_data['router_name']:
                 router_data['router_name'] = test.get('router_name', 'Unknown')
                 router_data['router_model'] = test.get('router_model', 'Unknown')
                 router_data['router_firmware'] = test.get('router_firmware', 'Unknown')
                 router_data['router_mac'] = router_mac
-            
+
             router_data['total_tests'] += 1
             status = test.get('status', '').lower()
             if status == 'passed':
@@ -74,27 +79,31 @@ class HTMLReportGenerator:
             else:
                 router_data['failed_tests'] += 1
                 router_data['failed_tests_details'].append(test)
-            
+
             # Calculate test duration
             start_time = test.get('start_time')
             end_time = test.get('end_time')
             if start_time and end_time:
                 try:
                     if isinstance(start_time, str):
-                        start_time = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                        start_time = datetime.fromisoformat(
+                            start_time.replace('Z', '+00:00')
+                        )
                     if isinstance(end_time, str):
-                        end_time = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
-                    
+                        end_time = datetime.fromisoformat(
+                            end_time.replace('Z', '+00:00')
+                        )
+
                     duration = (end_time - start_time).total_seconds()
                     router_data['total_duration'] += duration
                 except:
                     pass
-            
+
             feature_name = test.get('feature_name', 'Unknown Feature')
             router_data['features'][feature_name].append(test)
-        
+
         return dict(aggregated)
-    
+
     def _format_duration(self, total_seconds: float) -> str:
         """Format total seconds as HH:MM:SS"""
         total_seconds = int(total_seconds)
@@ -102,12 +111,12 @@ class HTMLReportGenerator:
         minutes = (total_seconds % 3600) // 60
         seconds = total_seconds % 60
         return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-    
+
     def _format_date(self, date_str) -> str:
         """Format date to US format"""
         if not date_str:
             return 'N/A'
-        
+
         try:
             if isinstance(date_str, str):
                 dt = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
@@ -116,7 +125,7 @@ class HTMLReportGenerator:
             return dt.strftime('%m/%d/%Y %H:%M:%S')
         except:
             return str(date_str)
-    
+
     def _get_header_html(self) -> str:
         """Generate consistent header with logos for all pages"""
         return """
@@ -131,7 +140,7 @@ class HTMLReportGenerator:
             </div>
         </div>
         """
-    
+
     def _get_footer_html(self) -> str:
         """Generate consistent footer for all pages"""
         return """
@@ -139,7 +148,7 @@ class HTMLReportGenerator:
             <p>All rights reserved © Cognizant Technology Solutions</p>
         </div>
         """
-    
+
     def _get_css(self) -> str:
         """Get minimal professional CSS styling"""
         return """
@@ -472,20 +481,22 @@ class HTMLReportGenerator:
             }
         }
         """
-    
+
     def _generate_recent_test_section(self, all_tests: List[Dict]) -> str:
         """Generate recent test execution details section"""
-        
+
         if not all_tests:
             return ""
-        
+
         # Get the most recent test
-        recent_test = sorted(all_tests, key=lambda x: x.get('test_time', ''), reverse=True)[0]
-        
+        recent_test = sorted(
+            all_tests, key=lambda x: x.get('test_time', ''), reverse=True
+        )[0]
+
         status = recent_test.get('status', 'unknown').lower()
         status_class = 'passed' if status == 'passed' else 'failed'
         status_icon = '✅' if status == 'passed' else '❌'
-        
+
         html = f"""
         <div class="recent-test-section">
             <h2>Most Recent Test Execution</h2>
@@ -535,14 +546,20 @@ class HTMLReportGenerator:
                 </div>
             </div>
 """
-        
+
         # Performance Metrics
-        if any([recent_test.get('router_avg_cpu_creation'), recent_test.get('router_avg_cpu_test'), recent_test.get('time_taken')]):
+        if any(
+            [
+                recent_test.get('router_avg_cpu_creation'),
+                recent_test.get('router_avg_cpu_test'),
+                recent_test.get('time_taken'),
+            ]
+        ):
             html += """
             <h3>Performance Metrics</h3>
             <div class="test-details-grid">
 """
-            
+
             if recent_test.get('router_avg_cpu_creation') is not None:
                 html += f"""
                 <div class="detail-box">
@@ -550,7 +567,7 @@ class HTMLReportGenerator:
                     <div class="value">{recent_test.get('router_avg_cpu_creation', 0):.2f}%</div>
                 </div>
 """
-            
+
             if recent_test.get('router_avg_cpu_test') is not None:
                 html += f"""
                 <div class="detail-box">
@@ -558,7 +575,7 @@ class HTMLReportGenerator:
                     <div class="value">{recent_test.get('router_avg_cpu_test', 0):.2f}%</div>
                 </div>
 """
-            
+
             if recent_test.get('time_taken') is not None:
                 html += f"""
                 <div class="detail-box">
@@ -566,11 +583,11 @@ class HTMLReportGenerator:
                     <div class="value">{recent_test.get('time_taken', 0):.2f} seconds</div>
                 </div>
 """
-            
+
             html += """
             </div>
 """
-        
+
         # Test Steps Details
         steps_data = recent_test.get('steps_data', [])
         if steps_data:
@@ -587,14 +604,24 @@ class HTMLReportGenerator:
                 </thead>
                 <tbody>
 """
-            
+
             for step in steps_data:
                 step_status = step.get('status', 'unknown')
-                step_class = f"step-{step_status.lower()}" if step_status in ['passed', 'failed', 'skipped'] else ""
-                step_icon = '✅' if step_status == 'passed' else '❌' if step_status == 'failed' else '⏭️'
-                
-                failure_msg = step.get('failure_message', '') if step_status != 'passed' else ''
-                
+                step_class = (
+                    f"step-{step_status.lower()}"
+                    if step_status in ['passed', 'failed', 'skipped']
+                    else ""
+                )
+                step_icon = (
+                    '✅'
+                    if step_status == 'passed'
+                    else '❌' if step_status == 'failed' else '⏭️'
+                )
+
+                failure_msg = (
+                    step.get('failure_message', '') if step_status != 'passed' else ''
+                )
+
                 html += f"""
                     <tr class="{step_class}">
                         <td><strong>{step.get('keyword', 'Step')}</strong></td>
@@ -603,12 +630,12 @@ class HTMLReportGenerator:
                         <td style="font-size: 12px;">{failure_msg}</td>
                     </tr>
 """
-            
+
             html += """
                 </tbody>
             </table>
 """
-        
+
         # Failure Details (if test failed)
         if status == 'failed':
             failure_reason = recent_test.get('failure_reason', 'Unknown error')
@@ -618,31 +645,34 @@ class HTMLReportGenerator:
                 <pre>{failure_reason}</pre>
             </div>
 """
-        
+
         # Charts Section - Look for chart images in test_reports directory
         chart_files = []
         if os.path.exists('test_reports'):
             for file in os.listdir('test_reports'):
-                if file.endswith('.png') and any(keyword in file.lower() for keyword in ['cpu', 'time', 'chart', 'graph']):
+                if file.endswith('.png') and any(
+                    keyword in file.lower()
+                    for keyword in ['cpu', 'time', 'chart', 'graph']
+                ):
                     chart_files.append(file)
-        
+
         # Sort to get most recent charts (assuming timestamp in filename)
         chart_files.sort(reverse=True)
-        
+
         if chart_files:
             html += """
             <h3>Performance Charts</h3>
             <div class="charts-section">
                 <div class="chart-container">
 """
-            
+
             # Copy charts to report directory and display them
             chart_titles = {
                 'cpu': 'CPE CPU Utilization',
                 'time': 'Time Taken Analysis',
-                'linux': 'Linux CPU Utilization'
+                'linux': 'Linux CPU Utilization',
             }
-            
+
             displayed_charts = set()
             for chart_file in chart_files[:6]:  # Limit to 6 most recent charts
                 # Determine chart type
@@ -651,18 +681,18 @@ class HTMLReportGenerator:
                     if key in chart_file.lower():
                         chart_type = key
                         break
-                
+
                 # Avoid duplicate chart types
                 if chart_type and chart_type not in displayed_charts:
                     displayed_charts.add(chart_type)
-                    
+
                     # Copy chart to report directory
                     src_path = os.path.join('test_reports', chart_file)
                     if self.report_dir and os.path.exists(src_path):
                         dst_path = os.path.join(self.report_dir, chart_file)
                         try:
                             shutil.copy2(src_path, dst_path)
-                            
+
                             html += f"""
                     <div class="chart-box">
                         <h4>{chart_titles.get(chart_type, 'Performance Chart')}</h4>
@@ -671,26 +701,28 @@ class HTMLReportGenerator:
 """
                         except Exception as e:
                             print(f"Warning: Could not copy chart {chart_file}: {e}")
-            
+
             html += """
                 </div>
             </div>
 """
-        
+
         html += """
         </div>
         """
-        
+
         return html
-    
-    def _generate_summary_page(self, aggregated_data: Dict, timestamp: str, all_tests: List[Dict]) -> str:
+
+    def _generate_summary_page(
+        self, aggregated_data: Dict, timestamp: str, all_tests: List[Dict]
+    ) -> str:
         """Generate summary/index page"""
-        
+
         total_tests = sum(d['total_tests'] for d in aggregated_data.values())
         total_passed = sum(d['passed_tests'] for d in aggregated_data.values())
         total_failed = sum(d['failed_tests'] for d in aggregated_data.values())
         total_routers = len(aggregated_data)
-        
+
         html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -752,19 +784,22 @@ class HTMLReportGenerator:
                 </thead>
                 <tbody>
 """
-        
-        for router_mac, router_data in sorted(aggregated_data.items(), 
-                                             key=lambda x: x[1]['router_name']):
+
+        for router_mac, router_data in sorted(
+            aggregated_data.items(), key=lambda x: x[1]['router_name']
+        ):
             router_name = router_data['router_name']
             router_model = router_data['router_model']
             total = router_data['total_tests']
             passed = router_data['passed_tests']
             failed = router_data['failed_tests']
             pass_rate = (passed / total * 100) if total > 0 else 0
-            
+
             # Create safe filename
-            filename = f"{router_name}_{router_model}".replace(' ', '_').replace('/', '_')
-            
+            filename = f"{router_name}_{router_model}".replace(' ', '_').replace(
+                '/', '_'
+            )
+
             html += f"""
                 <tr>
                     <td><strong>{router_name}</strong></td>
@@ -778,32 +813,36 @@ class HTMLReportGenerator:
                     <td><a href="{filename}.html">View Details →</a></td>
                 </tr>
 """
-        
+
         html += """
                 </tbody>
             </table>
 """
-        
+
         # Add Recent Test Section
         html += self._generate_recent_test_section(all_tests)
-        
-        html += """
+
+        html += (
+            """
         </div>
         
-        """ + self._get_footer_html() + """
+        """
+            + self._get_footer_html()
+            + """
     </div>
 </body>
 </html>
 """
-        
+        )
+
         return html
-    
+
     def _generate_router_page(self, router_mac: str, router_data: Dict) -> str:
         """Generate individual router detail page"""
-        
+
         router_name = router_data['router_name']
         router_model = router_data['router_model']
-        
+
         html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -861,7 +900,7 @@ class HTMLReportGenerator:
             
             <h2>Test History</h2>
 """
-        
+
         # Organize tests by feature
         for feature_name, tests in sorted(router_data['features'].items()):
             html += f"""
@@ -882,14 +921,16 @@ class HTMLReportGenerator:
                 </thead>
                 <tbody>
 """
-            
+
             # Sort by date (newest first)
-            sorted_tests = sorted(tests, key=lambda x: x.get('test_time', ''), reverse=True)
-            
+            sorted_tests = sorted(
+                tests, key=lambda x: x.get('test_time', ''), reverse=True
+            )
+
             for test in sorted_tests:
                 status = test.get('status', 'unknown').lower()
                 status_class = 'pass' if status == 'passed' else 'fail'
-                
+
                 # Calculate duration
                 start_time = test.get('start_time')
                 end_time = test.get('end_time')
@@ -897,32 +938,42 @@ class HTMLReportGenerator:
                 if start_time and end_time:
                     try:
                         if isinstance(start_time, str):
-                            start_time = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+                            start_time = datetime.fromisoformat(
+                                start_time.replace('Z', '+00:00')
+                            )
                         if isinstance(end_time, str):
-                            end_time = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
-                        duration = self._format_duration((end_time - start_time).total_seconds())
+                            end_time = datetime.fromisoformat(
+                                end_time.replace('Z', '+00:00')
+                            )
+                        duration = self._format_duration(
+                            (end_time - start_time).total_seconds()
+                        )
                     except:
                         pass
-                
+
                 # Get values or N/A
                 clients = test.get('number_of_clients')
                 clients_display = str(clients) if clients is not None else 'N/A'
-                
+
                 cpu_create = test.get('router_avg_cpu_creation')
-                cpu_create_display = f"{cpu_create:.2f}" if cpu_create is not None else 'N/A'
-                
+                cpu_create_display = (
+                    f"{cpu_create:.2f}" if cpu_create is not None else 'N/A'
+                )
+
                 cpu_test = test.get('router_avg_cpu_test')
                 cpu_test_display = f"{cpu_test:.2f}" if cpu_test is not None else 'N/A'
-                
+
                 # Get step summary
                 steps_data = test.get('steps_data', [])
                 if steps_data:
-                    passed_steps = sum(1 for s in steps_data if s.get('status') == 'passed')
+                    passed_steps = sum(
+                        1 for s in steps_data if s.get('status') == 'passed'
+                    )
                     total_steps = len(steps_data)
                     step_summary = f"{passed_steps}/{total_steps}"
                 else:
                     step_summary = "N/A"
-                
+
                 html += f"""
                     <tr>
                         <td>{self._format_date(test.get('test_time'))}</td>
@@ -935,26 +986,30 @@ class HTMLReportGenerator:
                         <td>{step_summary}</td>
                     </tr>
 """
-            
+
             html += """
                 </tbody>
             </table>
 """
-        
-        html += """
+
+        html += (
+            """
         </div>
         
-        """ + self._get_footer_html() + """
+        """
+            + self._get_footer_html()
+            + """
     </div>
 </body>
 </html>
 """
-        
+        )
+
         return html
-    
+
     def _generate_failures_page(self, aggregated_data: Dict) -> str:
         """Generate failure analysis page"""
-        
+
         html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -974,7 +1029,7 @@ class HTMLReportGenerator:
         <div class="content-wrapper">
             <h2>Failure Analysis</h2>
 """
-        
+
         # Collect all failures
         all_failures = []
         for router_mac, router_data in aggregated_data.items():
@@ -982,7 +1037,7 @@ class HTMLReportGenerator:
                 test['_router_name'] = router_data['router_name']
                 test['_router_model'] = router_data['router_model']
                 all_failures.append(test)
-        
+
         if not all_failures:
             html += """
             <p style="text-align: center; padding: 60px; color: #7f8c8d; font-size: 16px;">
@@ -992,7 +1047,7 @@ class HTMLReportGenerator:
         else:
             # Sort by date (newest first)
             all_failures.sort(key=lambda x: x.get('test_time', ''), reverse=True)
-            
+
             html += f"""
             <p style="margin-bottom: 20px; color: #7f8c8d;">
                 Total Failed Tests: <strong style="color: #e74c3c; font-size: 18px;">{len(all_failures)}</strong>
@@ -1012,27 +1067,33 @@ class HTMLReportGenerator:
                 </thead>
                 <tbody>
 """
-            
+
             for test in all_failures:
                 steps_data = test.get('steps_data', [])
                 failed_step = None
                 error_message = test.get('failure_reason', 'Unknown error')
                 step_status = 'FAILED'
-                
+
                 # Find failed step
                 for step in steps_data:
                     if step.get('status') in ['failed', 'undefined']:
-                        failed_step = f"{step.get('keyword', '')} {step.get('name', '')}"
+                        failed_step = (
+                            f"{step.get('keyword', '')} {step.get('name', '')}"
+                        )
                         error_message = step.get('failure_message', error_message)
                         step_status = step.get('status', 'FAILED').upper()
                         break
-                
+
                 if not failed_step:
                     failed_step = test.get('scenario_name', 'Unknown')
-                
+
                 # Highlight UNDEFINED steps differently
-                row_style = ' style="background: #fff3cd;"' if step_status == 'UNDEFINED' else ''
-                
+                row_style = (
+                    ' style="background: #fff3cd;"'
+                    if step_status == 'UNDEFINED'
+                    else ''
+                )
+
                 html += f"""
                     <tr{row_style}>
                         <td><strong>{test['_router_name']}-{test['_router_model']}</strong></td>
@@ -1044,95 +1105,108 @@ class HTMLReportGenerator:
                         <td style="font-family: monospace; font-size: 12px; max-width: 400px;">{error_message}</td>
                     </tr>
 """
-            
+
             html += """
                 </tbody>
             </table>
 """
-        
-        html += """
+
+        html += (
+            """
         </div>
         
-        """ + self._get_footer_html() + """
+        """
+            + self._get_footer_html()
+            + """
     </div>
 </body>
 </html>
 """
-        
+        )
+
         return html
-    
+
     def generate_html_report(self, all_tests: List[Dict]) -> str:
         """Generate multi-page HTML report"""
-        
+
         if not all_tests:
             return self._generate_empty_report()
-        
+
         # Create timestamped directory for this report
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         self.report_dir = os.path.join("test_reports", f"report_{timestamp}")
         os.makedirs(self.report_dir, exist_ok=True)
-        
+
         # Copy logos to report directory
         self._copy_logos_to_report()
-        
+
         # Aggregate data
         aggregated_data = self._aggregate_router_data(all_tests)
-        
+
         # Generate summary page (index.html)
-        summary_html = self._generate_summary_page(aggregated_data, timestamp, all_tests)
-        with open(os.path.join(self.report_dir, 'index.html'), 'w', encoding='utf-8') as f:
+        summary_html = self._generate_summary_page(
+            aggregated_data, timestamp, all_tests
+        )
+        with open(
+            os.path.join(self.report_dir, 'index.html'), 'w', encoding='utf-8'
+        ) as f:
             f.write(summary_html)
-        
+
         # Generate individual router pages
         for router_mac, router_data in aggregated_data.items():
             router_name = router_data['router_name']
             router_model = router_data['router_model']
-            filename = f"{router_name}_{router_model}".replace(' ', '_').replace('/', '_')
-            
+            filename = f"{router_name}_{router_model}".replace(' ', '_').replace(
+                '/', '_'
+            )
+
             router_html = self._generate_router_page(router_mac, router_data)
-            with open(os.path.join(self.report_dir, f'{filename}.html'), 'w', encoding='utf-8') as f:
+            with open(
+                os.path.join(self.report_dir, f'{filename}.html'), 'w', encoding='utf-8'
+            ) as f:
                 f.write(router_html)
-        
+
         # Generate failures page
         failures_html = self._generate_failures_page(aggregated_data)
-        with open(os.path.join(self.report_dir, 'failures.html'), 'w', encoding='utf-8') as f:
+        with open(
+            os.path.join(self.report_dir, 'failures.html'), 'w', encoding='utf-8'
+        ) as f:
             f.write(failures_html)
-        
+
         # Set permissions for all files
         self._set_permissions()
-        
+
         # Return path to index page
         return os.path.join(self.report_dir, 'index.html')
-    
+
     def _set_permissions(self):
         """Set world-readable permissions for all files in report directory"""
         try:
             # Directory: world executable/readable
             os.chmod(self.report_dir, 0o755)
-            
+
             # Files: world readable
             for filename in os.listdir(self.report_dir):
                 filepath = os.path.join(self.report_dir, filename)
                 if os.path.isfile(filepath):
                     os.chmod(filepath, 0o644)  # rw-r--r--
-                    
+
             # Also make test_reports parent directory accessible
             parent_dir = os.path.dirname(self.report_dir)
             os.chmod(parent_dir, 0o755)
-                    
+
         except Exception as e:
             print(f"Warning: Could not set permissions: {e}")
 
-    
     def _generate_empty_report(self) -> str:
         """Generate empty state report"""
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         self.report_dir = os.path.join("test_reports", f"report_{timestamp}")
         os.makedirs(self.report_dir, exist_ok=True)
-        
+
         # Copy logos
         self._copy_logos_to_report()
-        
+
         html = f"""<!DOCTYPE html>
     <html lang="en">
     <head>
@@ -1154,11 +1228,10 @@ class HTMLReportGenerator:
     </body>
     </html>
     """
-        
+
         filepath = os.path.join(self.report_dir, 'index.html')
         with open(filepath, 'w', encoding='utf-8') as f:
             f.write(html)
-        
+
         self._set_permissions()
         return filepath
-

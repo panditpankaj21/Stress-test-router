@@ -1,8 +1,8 @@
 import asyncio
 import utils.config
 import re
-import utils.config
-from utils.logger import logger 
+from utils.logger import logger
+
 
 def parse_cpu_usage(cpu_line: str) -> float:
     """
@@ -16,7 +16,7 @@ def parse_cpu_usage(cpu_line: str) -> float:
         idle = float(match.group(1))
         usage = 100 - idle
         return usage
-    
+
     # Fallback: try to extract from raw mpstat output
     # Format: "all  2.66  0.00  2.34  0.00  0.17  0.67  0.00  0.00  94.15"
     parts = cpu_line.split()
@@ -28,9 +28,10 @@ def parse_cpu_usage(cpu_line: str) -> float:
             return usage
         except (ValueError, IndexError):
             pass
-    
+
     logger.warning(f"Could not parse CPU usage from: {cpu_line}")
     return 0
+
 
 async def get_router_health(stop_event, type="test"):
     """
@@ -54,9 +55,7 @@ async def get_router_health(stop_event, type="test"):
         cnt = cnt + 1
         await asyncio.sleep(2)
 
-    if type=="creation":
+    if type == "creation":
         utils.config.router_cpu_creation = router_cpu / cnt
     else:
         utils.config.router_cpu_test = router_cpu / cnt
-
-    

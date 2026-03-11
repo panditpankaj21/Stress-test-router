@@ -68,9 +68,9 @@ class PingManager:
             "ping",
             self.ping_flag,
             "-c",
-            "1",  
+            "1",
             "-W",
-            "1", 
+            "1",
             self.target_ip,
         ]
 
@@ -79,7 +79,6 @@ class PingManager:
         if result["returncode"] != 0:
             return {"success": False, "latency": 0.0, "error": result["stderr"]}
 
-        
         latency = 0.0
         try:
             match = re.search(r"time=([\d.]+)", result["stdout"])
@@ -100,7 +99,7 @@ class PingManager:
             "total_latency": 0.0,
             "min_latency": 9999.0,
             "max_latency": 0.0,
-            "latencies": [],  
+            "latencies": [],
             "errors": set(),
         }
 
@@ -114,7 +113,7 @@ class PingManager:
                 stats["total_latency"] += lat
                 stats["min_latency"] = min(stats["min_latency"], lat)
                 stats["max_latency"] = max(stats["max_latency"], lat)
-                stats["latencies"].append(lat)  
+                stats["latencies"].append(lat)
             else:
                 clean_err = (
                     res["error"].replace(self.target_ip, "").strip() or "Timeout"
@@ -126,10 +125,9 @@ class PingManager:
 
             await asyncio.sleep(self.interval + random.uniform(0, 0.05))
 
-        
         loss_pct = 0.0
         avg_lat = 0.0
-        throughput = 0.0 
+        throughput = 0.0
 
         if stats["sent"] > 0:
             loss_pct = ((stats["sent"] - stats["received"]) / stats["sent"]) * 100
@@ -138,13 +136,15 @@ class PingManager:
         if stats["received"] > 0:
             avg_lat = stats["total_latency"] / stats["received"]
         else:
-            stats["min_latency"] = 0.0 
+            stats["min_latency"] = 0.0
 
         jitter = 0.0
         if len(stats["latencies"]) > 1:
             avg_latency = sum(stats["latencies"]) / len(stats["latencies"])
-            variance = sum((lat - avg_latency) ** 2 for lat in stats["latencies"]) / len(stats["latencies"])
-            jitter = round(variance ** 0.5, 2) 
+            variance = sum(
+                (lat - avg_latency) ** 2 for lat in stats["latencies"]
+            ) / len(stats["latencies"])
+            jitter = round(variance**0.5, 2)
 
         jitter_percentage = (jitter / avg_lat * 100) if avg_lat > 0 else 0.0
 
@@ -153,7 +153,7 @@ class PingManager:
             "avg_latency": round(avg_lat, 2),
             "min_latency": round(stats["min_latency"], 2),
             "max_latency": round(stats["max_latency"], 2),
-            "throughput": round(throughput, 2), 
+            "throughput": round(throughput, 2),
             "jitter": jitter,
             "jitter_percentage": round(jitter_percentage, 2),
             "sent": stats["sent"],
@@ -175,7 +175,7 @@ class PingManager:
             "Loss %",
             "Avg RTT (ms)",
             "Min/Max RTT(ms)",
-            "Throughput (pps)", 
+            "Throughput (pps)",
             "Jitter (ms)",
             "Jitter (%)",
             "Sent/Recv",
@@ -217,14 +217,14 @@ class PingManager:
                     f"{data['loss_pct']}%",
                     f"{data['avg_latency']}",
                     f"{data['min_latency']}/{data['max_latency']}",
-                    f"{data['throughput']}",  
-                    f"{data['jitter']}",  
-                    f"{data['jitter_percentage']}%",  
+                    f"{data['throughput']}",
+                    f"{data['jitter']}",
+                    f"{data['jitter_percentage']}%",
                     f"{data['sent']}/{data['received']}",
-                    remarks, 
+                    remarks,
                 ]
             )
-            
+
         global_loss = 0.0
         if total_sent > 0:
             global_loss = ((total_sent - total_recv) / total_sent) * 100
@@ -237,7 +237,6 @@ class PingManager:
             f"{'='*95}"
         )
         logger.info(f"\n{table}\n{'='*95}\n")
-        
 
     async def run_test(self, namespaces: List[str]):
 
