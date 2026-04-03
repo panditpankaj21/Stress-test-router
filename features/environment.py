@@ -1,6 +1,7 @@
 import os
 import yaml
 import json
+import time
 import asyncio
 import logging
 import subprocess
@@ -191,7 +192,7 @@ def before_all(context):
         context.router_model = router_info.get('router_model')
 
     except Exception as e:
-        logger.info(f"Failed to get Riouter information: {e}")
+        logger.info(f"Failed to get Router information: {e}")
         raise AssertionError(f"Failed to get Riouter information: {e}")
 
     logger.info("----- LOADING CONFIGURATION -----")
@@ -315,6 +316,7 @@ def after_scenario(context, scenario):
                 context.report_generator.generate_time_taken_plot(
                     historical_data, current_test
                 )
+                context.report_generator.generate_cpu_graph()
 
             else:
                 logger.info("\n⚠ No historical data found for comparison")

@@ -702,10 +702,7 @@ class HTMLReportGenerator:
         chart_files = []
         if os.path.exists('test_reports'):
             for file in os.listdir('test_reports'):
-                if file.endswith('.png') and any(
-                    keyword in file.lower()
-                    for keyword in ['cpu', 'time', 'chart', 'graph']
-                ):
+                if file.endswith('.png'):
                     chart_files.append(file)
 
         # Sort to get most recent charts (assuming timestamp in filename)
@@ -735,8 +732,9 @@ class HTMLReportGenerator:
                         break
 
                 # Avoid duplicate chart types
-                if chart_type and chart_type not in displayed_charts:
-                    displayed_charts.add(chart_type)
+                # if chart_type and chart_type not in displayed_charts:
+                #     displayed_charts.add(chart_type)
+                if chart_type:
 
                     # Copy chart to report directory
                     src_path = os.path.join('test_reports', chart_file)

@@ -1,6 +1,7 @@
 import asyncio
 import utils.config
 import re
+import time
 from utils.logger import logger
 
 
@@ -48,11 +49,14 @@ async def get_router_health(stop_event, type="test"):
             # purely so it doesn't freeze the ping tasks.
             raw = await loop.run_in_executor(None, utils.config.router_ssh.get_health)
             cpu_usage = parse_cpu_usage(raw)
-            router_cpu += cpu_usage
+            if cpu_usage is not None and cpu_usage > 0:
+                router_cpu += cpu_usage
+                utils.config.cpu_percentage.append(cpu_usage)
+                elapsed = time.time() - utils.config.start_time
+                utils.config.cpu_timestamps.append(elapsed)
+                cnt = cnt + 1
         except Exception as e:
             print(f"Error checking router health: {e}")
-
-        cnt = cnt + 1
         await asyncio.sleep(2)
 
     if type == "creation":

@@ -5,3 +5,15 @@ router_cpu_creation = None
 router_cpu_test = None
 time_taken = None
 metrics = {}
+cpu_percentage = []
+cpu_timestamps = []
+start_time = None
+
+#memory
+memory_timestamps = []
+MemTotal = None
+MemFree = []
+MemAvailable = []
+Buffers = []
+Cached = []
+

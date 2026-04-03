@@ -142,6 +142,7 @@ class NetworkManager:
 
     async def create_clients(self, count):
         start_time = time.monotonic()
+        utils.config.start_time = time.time()  
 
         stop_event_pi = asyncio.Event()
         stop_event_router = asyncio.Event()
