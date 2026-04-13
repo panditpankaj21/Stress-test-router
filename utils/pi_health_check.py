@@ -31,7 +31,7 @@ async def health_worker(stop_event, type="test"):
         data = await get_pi_health()
         temp_str = f"{data['temp']:.1f}C" if data["temp"] is not None else "N/A"
         logger.info(
-            f"[PI     ] CPU={data['cpu']}%  Temp={temp_str}  "
+            f"[LINUX     ] CPU={data['cpu']}%  Temp={temp_str}  "
             f"RAM={data['ram']}%  Disk={data['disk']}%  Load={data['load']}"
         )
         pi_cpu = 100 - data['cpu']
