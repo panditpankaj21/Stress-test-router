@@ -103,4 +103,5 @@ class TestDataHandler:
 
     def close(self):
         """Close MongoDB connection"""
+        logger.info("Closing MongoDB connection.")
         self.client.close()

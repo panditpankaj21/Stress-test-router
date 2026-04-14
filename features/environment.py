@@ -300,6 +300,8 @@ def after_all(context):
         import traceback
         traceback.print_exc()
 
+    context.db_handler.close()
+
     logger.info(
         "\n" + "=" * 70 + "\nThank you for using the test framework!\n" + "=" * 70
     )
