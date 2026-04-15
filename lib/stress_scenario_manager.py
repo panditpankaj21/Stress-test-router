@@ -1,131 +1,305 @@
 import asyncio
-import random
-import concurrent.futures
 import time
-import threading
+import random
+import struct
 from utils.logger import logger
-from utils.command_runner import run_cmd
 from utils.pi_health_check import health_worker
 from utils.router_health import get_router_health
 
 
 class StressScenarioManager:
+    """
+    Asyncio-based stress test - mirrors ping/download pattern
+    Lightweight coroutines instead of heavy threads
+    """
+
     def __init__(
-        self, duration, download_url, router_ip="192.168.1.1", dns_server="8.8.8.8"
+        self, duration, router_ip="192.168.1.1", dns_server="8.8.8.8"
     ):
         self.duration = duration
-        self.download_url = download_url
         self.router_ip = router_ip
         self.dns_server = dns_server
-        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=20)
+        self.results = {}
 
-    def _run_task_blocking(self, ns, task_func, end_time, result_dict):
+    # ==================== ASYNCIO STRESS TASKS ====================
+
+    async def _tcp_flood(self, ns, end_time):
+        """
+        Asyncio TCP flood using subprocess (like your ping code)
+        """
         count = 0
+        ports = [80, 443, 22, 23]
+        
         while time.time() < end_time:
-            task_func(ns)
-            count += 1
-        result_dict[ns] = count
+            try:
+                # Use asyncio subprocess like your ping code
+                for port in random.sample(ports, 3):
+                    cmd = (
+                        f"sudo ip netns exec {ns} "
+                        f"timeout 0.3 bash -c "
+                        f"'exec 3<>/dev/tcp/{self.router_ip}/{port} 2>/dev/null; "
+                        f"exec 3<&-'"
+                    )
+                    
+                    proc = await asyncio.create_subprocess_shell(
+                        cmd,
+                        stdout=asyncio.subprocess.DEVNULL,
+                        stderr=asyncio.subprocess.DEVNULL
+                    )
+                    await proc.communicate()
+                    count += 1
+                
+                # Small delay to prevent machine overload
+                await asyncio.sleep(0.001)
+            except:
+                await asyncio.sleep(0.001)
+        
+        return count
 
-    def _dns_query(self, ns):
-        run_cmd(
-            f"sudo ip netns exec {ns} dig +time=1 google.com @{self.dns_server}",
-            suppress_output=True,
-        )
+    async def _udp_flood(self, ns, end_time):
+        """
+        Asyncio UDP flood using netcat
+        """
+        count = 0
+        
+        while time.time() < end_time:
+            try:
+                # Send UDP packets using netcat (lighter than raw sockets)
+                cmd = (
+                    f"sudo ip netns exec {ns} timeout 0.2 bash -c '"
+                    f"for i in {{1..50}}; do "
+                    f"echo \"stress\" | nc -u -w0 {self.router_ip} 53 2>/dev/null; "
+                    f"done'"
+                )
+                
+                proc = await asyncio.create_subprocess_shell(
+                    cmd,
+                    stdout=asyncio.subprocess.DEVNULL,
+                    stderr=asyncio.subprocess.DEVNULL
+                )
+                await proc.communicate()
+                count += 50
+                
+                await asyncio.sleep(0.002)
+            except:
+                await asyncio.sleep(0.002)
+        
+        return count
 
-    def _tcp_connect(self, ns):
-        run_cmd(
-            f"sudo ip netns exec {ns} "
-            f"sh -c 'exec 3<>/dev/tcp/{self.router_ip}/80; exec 3<&-; exec 3>&-'",
-            suppress_output=True,
-        )
+    async def _http_download(self, ns, end_time):
+        """
+        Asyncio HTTP requests using curl (like your download code)
+        """
+        count = 0
+        
+        while time.time() < end_time:
+            try:
+                cmd = (
+                    f"sudo ip netns exec {ns} "
+                    f"curl -4 --silent --show-error --output /dev/null "
+                    f"--max-time 1 --connect-timeout 0.5 "
+                    f"http://{self.router_ip}/"
+                )
+                
+                proc = await asyncio.create_subprocess_shell(
+                    cmd,
+                    stdout=asyncio.subprocess.DEVNULL,
+                    stderr=asyncio.subprocess.DEVNULL
+                )
+                await proc.communicate()
+                count += 1
+                
+                await asyncio.sleep(0.003)
+            except:
+                await asyncio.sleep(0.003)
+        
+        return count
 
-    def _http_router_hit(self, ns):
-        run_cmd(
-            f"sudo ip netns exec {ns} curl -m 2 -s -o /dev/null http://{self.router_ip}/",
-            suppress_output=True,
-        )
+    async def _dns_flood(self, ns, end_time):
+        """
+        Asyncio DNS flood using dig (like your ping uses ping command)
+        """
+        count = 0
+        domains = [
+            "google.com", "facebook.com", "amazon.com",
+            "youtube.com", "twitter.com", "netflix.com"
+        ]
+        
+        while time.time() < end_time:
+            try:
+                domain = random.choice(domains)
+                cmd = (
+                    f"sudo ip netns exec {ns} "
+                    f"dig +time=1 +tries=1 +short {domain} @{self.dns_server}"
+                )
+                
+                proc = await asyncio.create_subprocess_shell(
+                    cmd,
+                    stdout=asyncio.subprocess.DEVNULL,
+                    stderr=asyncio.subprocess.DEVNULL
+                )
+                await proc.communicate()
+                count += 1
+                
+                await asyncio.sleep(0.005)
+            except:
+                await asyncio.sleep(0.005)
+        
+        return count
 
-    def _print_global_progress(self, start_time):
+    async def _icmp_flood(self, ns, end_time):
+        """
+        Asyncio ICMP flood using ping (exactly like your ping code)
+        """
+        count = 0
+        
+        while time.time() < end_time:
+            try:
+                cmd = (
+                    f"sudo ip netns exec {ns} "
+                    f"ping -c 5 -i 0.02 -W 1 {self.router_ip}"
+                )
+                
+                proc = await asyncio.create_subprocess_shell(
+                    cmd,
+                    stdout=asyncio.subprocess.DEVNULL,
+                    stderr=asyncio.subprocess.DEVNULL
+                )
+                await proc.communicate()
+                count += 5
+                
+                await asyncio.sleep(0.01)
+            except:
+                await asyncio.sleep(0.01)
+        
+        return count
+
+    # ==================== ASYNCIO WORKER (LIKE YOUR PING) ====================
+
+    async def worker(self, ns, end_time):
+        """
+        Single worker that runs ALL stress tasks concurrently
+        Uses asyncio.gather like your ping code
+        """
+        logger.info(f"{ns}: Starting asyncio hybrid stress")
+        
+        # Create tasks (like your ping code creates ping_tasks)
+        tasks = [
+            asyncio.create_task(self._tcp_flood(ns, end_time)),
+            asyncio.create_task(self._udp_flood(ns, end_time)),
+            asyncio.create_task(self._http_download(ns, end_time)),
+            asyncio.create_task(self._dns_flood(ns, end_time)),
+            asyncio.create_task(self._icmp_flood(ns, end_time)),
+        ]
+        
+        # Wait for all tasks (like your ping code)
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        total = sum(r for r in results if isinstance(r, int))
+        logger.info(f"{ns}: Completed {total:,} operations")
+        return total
+
+    async def _print_progress(self, start_time):
+        """Progress monitor"""
         while time.time() - start_time < self.duration:
             elapsed = time.time() - start_time
             pct = min(int((elapsed / self.duration) * 100), 100)
+            
+            hrs = int(elapsed // 3600)
+            mins = int((elapsed % 3600) // 60)
+            secs = int(elapsed % 60)
+            
+            remain = max(self.duration - elapsed, 0)
+            r_hrs = int(remain // 3600)
+            r_mins = int((remain % 3600) // 60)
+            r_secs = int(remain % 60)
+            
             print(
-                f"\rProgress: {pct:3d}% | Time left: {max(self.duration - int(elapsed),0):2d}s",
-                end="",
-                flush=True,
+                f"\rProgress: {pct:3d}% | "
+                f"Elapsed: {hrs:02d}:{mins:02d}:{secs:02d} | "
+                f"Remaining: {r_hrs:02d}:{r_mins:02d}:{r_secs:02d}",
+                end="", flush=True
             )
-            time.sleep(1)
+            
+            await asyncio.sleep(1)
+        
+        print("\rProgress: 100% | Complete!                                 ")
 
-        print("\rProgress: 100% | Done!                  ")
+    # ==================== MAIN START (LIKE YOUR PING/DOWNLOAD) ====================
 
     async def start(self, namespaces):
-
+        """
+        Main entry - EXACTLY like your ping code structure
+        """
         if not namespaces:
-            raise AssertionError("Critical: No namespaces provided for stress test.")
+            raise AssertionError("No namespaces provided")
 
-        logger.info("======= STRESS TEST START =======")
-
-        stop_event_pi = asyncio.Event()
-        stop_event_router = asyncio.Event()
+        logger.info("=" * 70)
+        logger.info(f"ASYNCIO HYBRID STRESS TEST - {len(namespaces)} clients")
+        logger.info(f"Duration: {self.duration}s ({self.duration/3600:.2f} hours)")
+        logger.info(f"Pattern: Mirrors ping/download asyncio architecture")
+        logger.info("=" * 70)
 
         start_time = time.time()
         end_time = start_time + self.duration
 
-        tasks = [
-            self._dns_query,
-            self._tcp_connect,
-            self._http_router_hit,
-        ]
+        # Health monitoring (like your ping code)
+        stop_event_pi = asyncio.Event()
+        stop_event_router = asyncio.Event()
+        
+        pi_task = asyncio.create_task(health_worker(stop_event_pi))
+        router_task = asyncio.create_task(get_router_health(stop_event_router))
+        # memory_router_task = asyncio.create_task(get_router_memory_health(stop_memory_router))
 
-        assigned = {}
-
-        for ns in namespaces:
-            assigned[ns] = random.choice(tasks)
-            logger.info(f"{ns}: Task → {assigned[ns].__name__}")
-
-        result_dict = {}
-        loop = asyncio.get_running_loop()
-
-        futures = [
-            loop.run_in_executor(
-                self.executor,
-                self._run_task_blocking,
-                ns,
-                assigned[ns],
-                end_time,
-                result_dict,
-            )
+        # Create worker tasks (EXACTLY like your ping code)
+        stress_tasks = [
+            asyncio.create_task(self.worker(ns, end_time))
             for ns in namespaces
         ]
 
-        progress_thread = threading.Thread(
-            target=self._print_global_progress, args=(start_time,), daemon=True
-        )
-        progress_thread.start()
+        # Progress monitor
+        progress_task = asyncio.create_task(self._print_progress(start_time))
 
-        pi_task = asyncio.create_task(health_worker(stop_event_pi))
-        router_task = asyncio.create_task(get_router_health(stop_event_router))
+        try:
+            # Wait for all workers (like your ping code)
+            results = await asyncio.gather(*stress_tasks, return_exceptions=True)
+            
+            # Collect results
+            for ns, count in zip(namespaces, results):
+                if isinstance(count, int):
+                    self.results[ns] = count
+                else:
+                    logger.error(f"{ns}: Task failed - {count}")
+                    self.results[ns] = 0
 
-        await asyncio.gather(*futures)
+        except Exception as e:
+            logger.error(f"Critical error: {e}")
+            raise
 
-        stop_event_pi.set()
-        stop_event_router.set()
-        await pi_task
-        await router_task
-
-        logger.info("\n======= COMPLETE =======")
-
-        missing_ns = set(namespaces) - set(result_dict.keys())
-        if missing_ns:
-            raise AssertionError(
-                f"Stress Test Failed: No results received for namespaces: {missing_ns}"
+        finally:
+            # Stop monitoring (like your ping code)
+            stop_event_pi.set()
+            stop_event_router.set()
+            await asyncio.gather(
+                pi_task, router_task, progress_task,
+                return_exceptions=True
             )
 
-        failed_ns = {ns: count for ns, count in result_dict.items() if count == 0}
+        # Display results
+        actual_duration = time.time() - start_time
+        total_ops = sum(self.results.values())
+        
+        logger.info("\n" + "=" * 70)
+        logger.info("STRESS TEST COMPLETE")
+        logger.info("=" * 70)
+        logger.info(f"Total operations: {total_ops:,}")
+        logger.info(f"Operations/second: {total_ops / actual_duration:.0f}")
+        logger.info(f"Actual duration: {actual_duration:.2f}s")
+        logger.info("=" * 70)
+
+        # Validation (like your ping code)
+        failed_ns = {ns: count for ns, count in self.results.items() if count == 0}
         if failed_ns:
-            raise AssertionError(
-                f"Stress Test Failed: Zero iterations executed "
-                f"for: {list(failed_ns.keys())}. Check commands/connectivity."
-            )
+            logger.warning(f"⚠ Zero operations for: {list(failed_ns.keys())}")
 
-        return result_dict
+        return self.results

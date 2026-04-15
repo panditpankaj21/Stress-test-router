@@ -1,24 +1,16 @@
 import os
 import yaml
-import json
 import asyncio
-import logging
 import subprocess
-from dotenv import load_dotenv
+import utils.config
 from datetime import datetime
+from dotenv import load_dotenv
 from utils.logger import logger
 from utils.command_runner import run_cmd
-from utils.router_ssh import create_router_ssh
-import utils.config
 from lib.mongo_handler import TestDataHandler
+from utils.router_ssh import create_router_ssh
 from lib.report_generator import ReportGenerator
 from lib.html_report_generator import HTMLReportGenerator
-
-summary_logger = None
-
-MONGODB_CONNECTION_STRING = (
-    "mongodb+srv://pkp20022_db_user:Nfo60hcufd2tVwLW@cluster0.cxkwlpd.mongodb.net/"
-)
 
 
 def shorten_ipv6_one_digit(addr):
@@ -47,25 +39,6 @@ def get_router_global_ipv6():
         raise AssertionError(f"Error: {e}")
 
 
-def setup_summary_logger():
-    """
-    Sets up the summary logger.
-    mode='w' ensures the file is cleared when this logger is initialized.
-    """
-    s_logger = logging.getLogger("scenario_summary")
-    s_logger.setLevel(logging.INFO)
-    s_logger.propagate = False
-
-    if not s_logger.handlers:
-        os.makedirs("results/logs", exist_ok=True)
-        handler = logging.FileHandler("results/logs/summary.log", mode='w')
-        formatter = logging.Formatter("%(asctime)s | %(message)s")
-        handler.setFormatter(formatter)
-        s_logger.addHandler(handler)
-
-    return s_logger
-
-
 async def cleanup_namespace(ns):
     macvlan = f"macvlan{ns[2:]}"
     try:
@@ -86,13 +59,12 @@ async def cleanup_namespace(ns):
 
 
 async def async_cleanup():
-    logger.info("----- ASYNC CLEANUP STARTED -----")
+    logger.info("Cleaning up client namespaces...")
     try:
         output = await run_cmd("sudo ip netns list")
         namespaces = [line.split()[0] for line in output.splitlines() if line]
         tasks = [cleanup_namespace(ns) for ns in namespaces]
         await asyncio.gather(*tasks)
-        logger.info("All clients deleted successfully.")
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed to list namespaces: {e}")
 
@@ -114,43 +86,31 @@ def cleanup_report_files():
 
 
 def before_all(context):
-    global summary_logger
+    logger.info("----- STARTING TEST -----")
 
     logger.info("----- CLEANING UP BEFORE STARTING TEST -----")
     cleanup()
     logger.info("----- CLEANUP DONE SUCCESSFULLY -----")
 
     context.ROUTER_IPV6 = get_router_global_ipv6()
-
     cleanup_report_files()
 
-    summary_logger = setup_summary_logger()
-    summary_logger.info("Test Run Started:")
 
-    """Initialize MongoDB handler"""
-    context.db_handler = TestDataHandler(MONGODB_CONNECTION_STRING)
-    context.report_generator = ReportGenerator(output_dir="test_reports")
-    # context.stats_generator = ExcelStatisticsGenerator(
-    #     excel_path="test_reports/test_statistics.xlsx"
-    # )
-    context.html_generator = HTMLReportGenerator(output_dir="test_reports")
-
-    os.makedirs("results/json", exist_ok=True)
-    with open("results/json/summary.json", "w") as f:
-        json.dump([], f)
-
-    logger.info("----- STARTING TEST -----")
-
+    logger.info("----- LOADING ENVIRONMENT VARIABLES -----")
     try:
         load_dotenv()
-        logger.info(".env file loaded successfully.")
     except Exception as e:
         logger.error(f"Failed to load .env file: {e}")
         raise AssertionError(f"Failed to load .env file: {e}")
 
+    
+    logger.info("----- INITIALIZING DATABASE HANDLER -----")
+    context.db_handler = TestDataHandler(os.getenv("MONGODB_CONNECTION_STRING"))
+    context.report_generator = ReportGenerator(output_dir="test_reports")
+    context.html_generator = HTMLReportGenerator(output_dir="test_reports")
+
+
     logger.info("----- EXECUTING SSH LOGIN SCRIPT -----")
-    # try:
-    # logger.info(os.getenv('ROUTER_MAC'))
     cmd = f"./ssh-login.py -i {os.getenv('ROUTER_MAC')}"
     subprocess.run(
         cmd,
@@ -159,12 +119,6 @@ def before_all(context):
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
-    # cmd = ["./ssh-login.py", "-i", "90d3cfcd0e75"]
-    # subprocess.run(cmd, check=True)
-    logger.info("SSH login script executed successfully.")
-    # except subprocess.CalledProcessError as e:
-    #     logger.error(f"SSH login script failed: {e}")
-    #     raise AssertionError(f"SSH login script failed: {e}")
 
     context.ssid = os.getenv('WIFI_SSID')
     context.password = os.getenv('WIFI_PASSWORD')
@@ -174,14 +128,14 @@ def before_all(context):
 
     logger.info("----- INITIALIZING ROUTER SSH MANAGER -----")
     utils.config.router_ssh = create_router_ssh()
+    
     try:
         utils.config.router_ssh.connect()
-        logger.info("Router SSH Manager initialized successfully.")
     except Exception as e:
         logger.error(f"Failed to connect to router: {e}")
         raise AssertionError(f"Failed to Connect to router: {e}")
 
-    # getting information about the Router
+    
     logger.info("----- Getting Router Info -----")
     try:
         router_info = utils.config.router_ssh.get_router_info()
@@ -191,30 +145,28 @@ def before_all(context):
         context.router_model = router_info.get('router_model')
 
     except Exception as e:
-        logger.info(f"Failed to get Riouter information: {e}")
+        logger.info(f"Failed to get Router information: {e}")
         raise AssertionError(f"Failed to get Riouter information: {e}")
+    
 
     logger.info("----- LOADING CONFIGURATION -----")
     try:
         with open("config.yaml") as file:
             context.config = yaml.safe_load(file)
-        logger.info("Configuration loaded successfully.")
     except Exception as e:
         logger.error(f"Failed to load configuration: {e}")
         raise AssertionError(f"Failed to load configuration: {e}")
 
 
 def before_scenario(context, scenario):
-    logger.info("\n" + "----- BEFORE SCENARIO CLEANING PROCESS STARTS -----")
-    cleanup()
     scenario.start_time = datetime.now().isoformat()
     context.start_time = datetime.utcnow()
-    logger.info("----- CLEANUP DONE SUCCESSFULLY -----")
 
 
 def after_scenario(context, scenario):
 
-    # getting information about the secenario and feature
+    logger.info(f"----- SCENARIO '{scenario.name}' ENDED -----")
+
     context.scenario_name = scenario.name
     context.feature_name = scenario.feature.name
     context.linux_avg_cpu_creation = utils.config.linux_cpu_creation
@@ -250,7 +202,7 @@ def after_scenario(context, scenario):
     # Store in context
     context.steps_data = steps_data
 
-    # Capture failure reason if test failed
+    
     if scenario.status.name == 'failed':
         context.status = 'failed'
         context.failure_reason = (
@@ -315,41 +267,40 @@ def after_scenario(context, scenario):
                 context.report_generator.generate_time_taken_plot(
                     historical_data, current_test
                 )
+                context.report_generator.generate_cpu_graph()
 
             else:
-                logger.info("\n⚠ No historical data found for comparison")
+                logger.info("No historical data found for comparison")
 
         except Exception as e:
-            logger.info(f"\n✗ Failed to generate report: {e}")
+            logger.error(f"Failed to generate report: {e}")
             import traceback
-
             traceback.print_exc()
 
-    if summary_logger:
-        summary_logger.info(
-            f"Feature: {scenario.feature.name} | Scenario: {scenario.name} | "
-            f"Status: {scenario.status.name} | Failure: {failure_message or 'None'}"
-        )
 
 
 def after_all(context):
     logger.info("----- END CLEANING PROCESS STARTS -----")
     cleanup()
     logger.info("----- CLEANUP DONE SUCCESSFULLY -----")
+
+    logger.info("----- DISCONNECTING SSH -----")
     utils.config.router_ssh.disconnect()
 
+    logger.info("----- GENERATING HTML REPORT -----")
     try:
-        logger.info("\n⏳ Generating HTML report...")
         all_tests = context.db_handler.get_all_test_results()
         context.html_generator.generate_html_report(all_tests)
-
+        
+        logger.info("----- UPDATING PERMISSIONS FOR REPORTS -----")
         give_permission_cmd()
 
     except Exception as e:
-        logger.info(f"\n✗ Failed to generate HTML report: {e}")
+        logger.error(f"Failed to generate HTML report: {e}")
         import traceback
-
         traceback.print_exc()
+
+    context.db_handler.close()
 
     logger.info(
         "\n" + "=" * 70 + "\nThank you for using the test framework!\n" + "=" * 70
@@ -363,6 +314,5 @@ def give_permission_cmd():
 async def async_give_permission_cmd():
     try:
         await run_cmd("sudo chown -R blueplanet:blueplanet test_reports")
-        logger.info("Permissions updated successfully for test_reports directory.")
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed to update permissions for test_reports directory: {e}")

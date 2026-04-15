@@ -8,6 +8,9 @@ from datetime import datetime
 from typing import List, Dict
 import os
 import statistics
+import utils.config
+from utils.logger import logger
+
 
 
 class ReportGenerator:
@@ -280,6 +283,75 @@ class ReportGenerator:
         plt.close()
 
         return filepath
+    
+
+    def generate_cpu_graph(self):
+        """
+        Generate CPU% vs Time graph and save as image
+        Returns: path to saved image
+        """
+        cpu_data = utils.config.cpu_percentage
+        time_data = utils.config.cpu_timestamps
+
+        if not cpu_data or not time_data:
+            logger.info("Heree is Breaking")
+            return None
+
+        plt.figure(figsize=(12, 6))
+
+        # Plot CPU% over time
+        plt.plot(
+            time_data,
+            cpu_data,
+            color='#e74c3c',
+            linewidth=2,
+            marker='o',
+            markersize=4,
+            label='Router CPU%'
+        )
+
+        # Threshold lines
+        plt.axhline(y=50, color='orange', linestyle='--', linewidth=1, alpha=0.5, label='50% threshold')
+        plt.axhline(y=80, color='red', linestyle='--', linewidth=1, alpha=0.5, label='80% threshold')
+
+        # Add faint horizontal and vertical lines for each point
+        for t, cpu in zip(time_data, cpu_data):
+            plt.axhline(y=cpu, color='gray', linestyle=':', linewidth=0.7, alpha=0.3)
+            plt.axvline(x=t, color='gray', linestyle=':', linewidth=0.7, alpha=0.3)
+
+        # Styling
+        plt.xlabel('Time (seconds)', fontsize=12, fontweight='bold')
+        plt.ylabel('CPU Usage (%)', fontsize=12, fontweight='bold')
+        plt.title('Router CPE Utilization Over Time', fontsize=14, fontweight='bold')
+        plt.grid(True, alpha=0.3, linestyle='--')
+        plt.legend(loc='upper right')
+        plt.ylim(0, 100)
+
+        # Stats
+        avg_cpu = sum(cpu_data) / len(cpu_data)
+        max_cpu = max(cpu_data)
+        min_cpu = min(cpu_data)
+
+        stats_text = f'Avg: {avg_cpu:.1f}%\nMax: {max_cpu:.1f}%\nMin: {min_cpu:.1f}%'
+        plt.text(
+            0.02, 0.98,
+            stats_text,
+            transform=plt.gca().transAxes,
+            fontsize=10,
+            verticalalignment='top',
+            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+        )
+
+        plt.tight_layout()
+
+        filename = f"cpu_usage_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+        filepath = os.path.join(self.output_dir, filename)
+
+        plt.savefig(filepath, dpi=150, bbox_inches='tight')
+        plt.close()
+
+        return filepath
+
 
     def calculate_metrics_average(self, test_data: List[Dict]) -> Dict[str, float]:
         """Calculate average of metrics across all tests"""

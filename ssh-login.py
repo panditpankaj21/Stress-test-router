@@ -7,6 +7,9 @@ import json
 import time
 import requests
 import getopt
+from dotenv import load_dotenv
+
+load_dotenv()
 
 pp = pprint.PrettyPrinter(indent=4)
 enable_traces = 0
@@ -19,7 +22,7 @@ email = os.getenv("EMAIL")
 passwd = os.getenv("PASSWD")
 
 sshpassword = os.getenv("PASSWORD")
-time_out = int(os.getenv("SSH_TIMEOUT", "3600"))
+time_out = int(os.getenv("SSH_TIMEOUT", "10800"))  # Default to 3 hours if not set
 
 enable = 1
 
